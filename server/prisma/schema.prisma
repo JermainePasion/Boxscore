@@ -8,8 +8,144 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  username        String   @unique @db.VarChar(50)
+  email           String   @unique @db.VarChar(100)
+  passwordHash    String
+  bio             String?
+  favoriteTeamId  Int?
+  createdAt       DateTime @default(now())
+
+  favoriteTeam    Team?    @relation(fields: [favoriteTeamId], references: [id])
+
+  reviews         GameReview[]
+  reviewLikes     ReviewLike[]
+  comments        Comment[]
+  goatPyramid     GoatPyramid?
+}
+
+model Team {
+  id            Int     @id   
+  name          String  @db.VarChar(100)
+  city          String? @db.VarChar(100)
+  abbreviation  String? @db.VarChar(10)
+
+  players       Player[]
+  homeGames     Game[]  @relation("HomeTeam")
+  awayGames     Game[]  @relation("AwayTeam")
+  fans          User[]
+}
+
+model Player {
+  id       Int    @id   
+  name     String @db.VarChar(100)
+  teamId   Int?
+
+  team     Team?  @relation(fields: [teamId], references: [id])
+
+  stats    GameStat[]
+  pyramidEntries GoatPyramidPlayer[]
+}
+
+model Game {
+  id            String   @id  
+  date          DateTime?
+  season        String?  @db.VarChar(20)
+  status        String?  @db.VarChar(20)
+
+  homeTeamId    Int
+  awayTeamId    Int
+
+  homeTeam      Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam      Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  stats         GameStat[]
+  reviews       GameReview[]
+  comments      Comment[]
+}
+
+model GameStat {
+  id        String  @id @default(uuid())
+  gameId    String
+  playerId  Int
+
+  points    Int?
+  assists   Int?
+  rebounds  Int?
+  steals    Int?
+  blocks    Int?
+  minutes   Int?
+
+  game      Game    @relation(fields: [gameId], references: [id])
+  player    Player  @relation(fields: [playerId], references: [id])
+
+  @@unique([gameId, playerId]) 
+}
+
+model GameReview {
+  id         String   @id @default(uuid())
+  userId     String
+  gameId     String
+
+  rating     Int
+  review     String?
+  likeCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  game       Game     @relation(fields: [gameId], references: [id])
+
+  likes      ReviewLike[]
+  comments   Comment[]
+
+  @@unique([userId, gameId])
+}
+
+model ReviewLike {
+  id         String   @id @default(uuid())
+  userId     String
+  reviewId   String
+  createdAt  DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  review     GameReview @relation(fields: [reviewId], references: [id])
+
+  @@unique([userId, reviewId]) 
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  userId      String
+
+  gameId      String?
+  reviewId    String?
+  pyramidId   String?
+
+  content     String
+  createdAt   DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+  game        Game?       @relation(fields: [gameId], references: [id])
+  review      GameReview? @relation(fields: [reviewId], references: [id])
+  pyramid     GoatPyramid?@relation(fields: [pyramidId], references: [id])
+}
+
+model GoatPyramid {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  players    GoatPyramidPlayer[]
+  comments   Comment[]
+}
+
+model GoatPyramidPlayer {
+  id          String  @id @default(uuid())
+  pyramidId   String
+  playerId    Int
+  tier        Int
+
+  pyramid     GoatPyramid @relation(fields: [pyramidId], references: [id])
+  player      Player      @relation(fields: [playerId], references: [id])
 }
