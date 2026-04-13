@@ -4,6 +4,8 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
+import gameRoutes from "./src/routes/gameRoutes.js"
+
 import { prisma } from "./lib/prisma.js"
 
 const app = express()
@@ -11,24 +13,8 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-app.post("/users", async (req, res) => {
-  try {
-    const { email, name } = req.body
 
-    const user = await prisma.user.create({
-      data: { email, name },
-    })
-
-    res.json(user)
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-app.get("/users", async (req, res) => {
-  const users = await prisma.user.findMany()
-  res.json(users)
-})
+app.use("/api/games", gameRoutes)
 
 const PORT = process.env.PORT || 5000
 
