@@ -68,13 +68,14 @@ model GameStat {
   id        String  @id @default(uuid())
   gameId    String
   playerId  Int
+  teamId    Int
 
   points    Int?
   assists   Int?
   rebounds  Int?
   steals    Int?
   blocks    Int?
-  minutes   Int?
+  minutes String
 
   game      Game    @relation(fields: [gameId], references: [id])
   player    Player  @relation(fields: [playerId], references: [id])

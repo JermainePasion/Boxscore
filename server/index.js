@@ -6,8 +6,6 @@ dotenv.config()
 
 import gameRoutes from "./src/routes/gameRoutes.js"
 
-import { prisma } from "./lib/prisma.js"
-
 const app = express()
 
 app.use(cors())
@@ -19,5 +17,5 @@ app.use("/api/games", gameRoutes)
 const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} 🚀`)
+  console.log(`Server running on port ${PORT}`)
 })

@@ -1,8 +1,10 @@
 import express from "express"
-import { getGames } from "../controllers/gameController.js"
+import { searchGames } from "../controllers/gameController.js"
+import { getGameById } from "../controllers/gameController.js"
 
 const router = express.Router()
 
-router.get("/", getGames)
+router.get("/search", searchGames)
+router.get("/:id", getGameById)
 
 export default router
