@@ -4,6 +4,7 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
+import authRoutes from "./src/routes/authRoutes.js"
 import gameRoutes from "./src/routes/gameRoutes.js"
 
 const app = express()
@@ -11,7 +12,7 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-
+app.use("/api/auth", authRoutes)
 app.use("/api/games", gameRoutes)
 
 const PORT = process.env.PORT || 5000
