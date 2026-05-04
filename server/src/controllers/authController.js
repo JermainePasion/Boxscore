@@ -33,33 +33,41 @@ export const register = async (req, res) => {
 }
 
 export const login = async (req, res) => {
-    const {email, password} = req.body
+  const { email, password } = req.body
 
-    try{
-        const user = await prisma.user.findUnique({
-            where:{ email }
-        })
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email }
+    })
 
-        if (!user){
-            return res.status(400).json({error: "Invalid input"})
-        }
-
-        const isMatch = await bcrypt.compare(password, user.passwordHash)
-
-        if(!isMatch){
-            return res.status(400).json({error: "Invalid input"})
-        }
-
-        const token = jwt.sign(
-            { userId: user.id },
-            JWT_SECRET,
-            { expiresIn: "7d" }
-        )
-        res.json(user)
-        }catch (err){
-        console.error(err)
-        res.status(500).json({error: "Register failed."})
+    if (!user) {
+      return res.status(400).json({ error: "Invalid input" })
     }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash)
+
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid input" })
+    }
+
+    const token = jwt.sign(
+      { userId: user.id },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    )
+
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: "Login failed." })
+  }
 }
 
 export const resetPassword = async (req, res) => {

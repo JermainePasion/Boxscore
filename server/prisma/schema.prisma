@@ -75,7 +75,7 @@ model GameStat {
   rebounds  Int?
   steals    Int?
   blocks    Int?
-  minutes String
+  minutes String?
 
   game      Game    @relation(fields: [gameId], references: [id])
   player    Player  @relation(fields: [playerId], references: [id])
@@ -92,6 +92,9 @@ model GameReview {
   review     String?
   likeCount  Int      @default(0)
   createdAt  DateTime @default(now())
+
+  watchedAt     DateTime?
+  watchedBefore Boolean
 
   user       User     @relation(fields: [userId], references: [id])
   game       Game     @relation(fields: [gameId], references: [id])
