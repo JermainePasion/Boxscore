@@ -101,7 +101,9 @@ export const getGameById = async (req, res) => {
                   where: { id: s.playerId },
                   create: {
                     id: s.playerId,
-                    name: s.name || "Unknown Player"
+                    name: s.name || "Unknown Player",
+                    position: s.position || null,
+                    headshotUrl: `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${s.playerId}.png`
                   }
                 }
               },
@@ -148,5 +150,43 @@ export const searchGames = (req, res) => {
       console.error(parseError)
       res.status(500).json({ error: "Invalid response from Python" })
     }
+  })
+}
+
+export const searchPlayers = (req, res) => {
+  const { q } = req.query
+  if (!q) return res.status(400).json({ error: "Query required" })
+
+  const scriptPath = path.resolve("python", "searchPlayers.py")
+
+  exec(`python "${scriptPath}" "${q}"`, async (err, stdout, stderr) => {
+    if (err) {
+      console.error("PYTHON ERROR:", stderr)
+      return res.status(500).json({ error: "Player search failed" })
+    }
+
+    let players
+    try {
+      players = JSON.parse(stdout.trim())
+    } catch {
+      return res.status(500).json({ error: "Invalid response from Python" })
+    }
+
+    // Upsert into DB so they're ready for pyramid use
+    await Promise.all(players.map(p =>
+      prisma.player.upsert({
+        where: { id: p.id },
+        update: { name: p.name, headshotUrl: p.headshotUrl, position: p.position },
+        create: {
+          id: p.id,
+          name: p.name,
+          headshotUrl: p.headshotUrl,
+          position: p.position ?? null,
+          teamId: p.teamId ?? null
+        }
+      })
+    ))
+
+    return res.json(players)
   })
 }

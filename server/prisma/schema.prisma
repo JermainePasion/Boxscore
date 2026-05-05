@@ -37,13 +37,14 @@ model Team {
 }
 
 model Player {
-  id       Int    @id   
-  name     String @db.VarChar(100)
-  teamId   Int?
+  id          Int    @id
+  name        String @db.VarChar(100)
+  teamId      Int?
+  headshotUrl String?
+  position    String? @db.VarChar(20)
 
-  team     Team?  @relation(fields: [teamId], references: [id])
-
-  stats    GameStat[]
+  team        Team?  @relation(fields: [teamId], references: [id])
+  stats       GameStat[]
   pyramidEntries GoatPyramidPlayer[]
 }
 
