@@ -13,7 +13,6 @@ model User {
   email           String   @unique @db.VarChar(100)
   passwordHash    String
   bio             String?
-  avatarUrl       String?
   favoriteTeamId  Int?
   createdAt       DateTime @default(now())
 
@@ -24,23 +23,8 @@ model User {
   comments        Comment[]
   goatPyramid     GoatPyramid?
 
-  // ── follow relationships ─────────────────────────────
-  following       Follow[] @relation("Follower")
-  followers       Follow[] @relation("Following")
-}
-
-model Follow {
-  id           String   @id @default(uuid())
-  followerId   String   // the user doing the following
-  followingId  String   // the user being followed
-  createdAt    DateTime @default(now())
-
-  follower     User     @relation("Follower", fields: [followerId], references: [id])
-  following    User     @relation("Following", fields: [followingId], references: [id])
-
-  @@unique([followerId, followingId])
-  @@index([followingId])
-  @@index([followerId])
+  following       Follow[] @relation("Follower") 
+  followers       Follow[] @relation("Following") 
 }
 
 model Team {
@@ -65,6 +49,8 @@ model Player {
   team        Team?  @relation(fields: [teamId], references: [id])
   stats       GameStat[]
   pyramidEntries GoatPyramidPlayer[]
+
+  @@index([teamId])
 }
 
 model Game {
@@ -82,6 +68,10 @@ model Game {
   stats         GameStat[]
   reviews       GameReview[]
   comments      Comment[]
+
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([season])
 }
 
 model GameStat {
@@ -101,6 +91,7 @@ model GameStat {
   player    Player  @relation(fields: [playerId], references: [id])
 
   @@unique([gameId, playerId]) 
+  @@index([playerId])
 }
 
 model GameReview {
@@ -123,7 +114,10 @@ model GameReview {
   comments   Comment[]
 
   @@unique([userId, gameId])
+  @@index([gameId])
 }
+
+
 
 model ReviewLike {
   id         String   @id @default(uuid())
@@ -135,6 +129,7 @@ model ReviewLike {
   review     GameReview @relation(fields: [reviewId], references: [id])
 
   @@unique([userId, reviewId]) 
+  @@index([reviewId])
 }
 
 model Comment {
@@ -152,6 +147,24 @@ model Comment {
   game        Game?       @relation(fields: [gameId], references: [id])
   review      GameReview? @relation(fields: [reviewId], references: [id])
   pyramid     GoatPyramid?@relation(fields: [pyramidId], references: [id])
+  @@index([gameId])
+  @@index([reviewId])
+  @@index([pyramidId])
+  @@index([userId])
+}
+
+model Follow {
+  id           String   @id @default(uuid())
+  followerId   String
+  followingId  String
+  createdAt    DateTime @default(now())
+
+  follower     User     @relation("Follower", fields: [followerId], references: [id])
+  following    User     @relation("Following", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@index([followerId])
 }
 
 model GoatPyramid {
@@ -172,4 +185,7 @@ model GoatPyramidPlayer {
 
   pyramid     GoatPyramid @relation(fields: [pyramidId], references: [id])
   player      Player      @relation(fields: [playerId], references: [id])
+
+  @@index([pyramidId])
+  @@index([playerId])
 }
