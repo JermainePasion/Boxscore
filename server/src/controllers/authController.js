@@ -25,7 +25,21 @@ export const register = async (req, res) => {
                 passwordHash: hashedPassword
             }
         })
-        res.json(user)
+
+        const token = jwt.sign(
+            { userId: user.id },
+            JWT_SECRET,
+            { expiresIn: "7d" }
+        )
+
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        })
     }catch (err){
         console.error(err)
         res.status(500).json({error: "Register failed."})

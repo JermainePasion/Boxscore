@@ -13,6 +13,7 @@ model User {
   email           String   @unique @db.VarChar(100)
   passwordHash    String
   bio             String?
+  avatarUrl       String?
   favoriteTeamId  Int?
   createdAt       DateTime @default(now())
 
@@ -22,6 +23,24 @@ model User {
   reviewLikes     ReviewLike[]
   comments        Comment[]
   goatPyramid     GoatPyramid?
+
+  // ── follow relationships ─────────────────────────────
+  following       Follow[] @relation("Follower")
+  followers       Follow[] @relation("Following")
+}
+
+model Follow {
+  id           String   @id @default(uuid())
+  followerId   String   // the user doing the following
+  followingId  String   // the user being followed
+  createdAt    DateTime @default(now())
+
+  follower     User     @relation("Follower", fields: [followerId], references: [id])
+  following    User     @relation("Following", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@index([followerId])
 }
 
 model Team {

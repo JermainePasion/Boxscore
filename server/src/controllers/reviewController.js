@@ -1,4 +1,6 @@
 import { prisma } from "../../lib/prisma.js"
+import { execSync } from "child_process"
+import path from "path"
 
 // ─── REVIEWS ────────────────────────────────────────────────────────────────
 
@@ -19,9 +21,67 @@ export const upsertReview = async (req, res) => {
   }
 
   try {
-    // Confirm the game exists
-    const game = await prisma.game.findUnique({ where: { id: gameId } })
-    if (!game) return res.status(404).json({ error: "Game not found" })
+    // Check if game exists; if not, fetch it
+    let game = await prisma.game.findUnique({ where: { id: gameId } })
+
+    if (!game) {
+      const scriptPath = path.resolve("python", "fetchSingleGame.py")
+      try {
+        const stdout = execSync(`python "${scriptPath}" ${gameId}`).toString()
+        const data = JSON.parse(stdout.trim())
+
+        if (data.error) {
+          return res.status(404).json({ error: "Game not found in NBA API" })
+        }
+
+        const { gameId: gid, homeTeam, awayTeam, stats = [] } = data
+
+        game = await prisma.game.create({
+          data: {
+            id: gid,
+            date: new Date(),
+            season: "20" + gid.slice(3, 5),
+            status: stats.length > 0 ? "final" : "no_data",
+            homeTeam: {
+              connectOrCreate: {
+                where: { id: homeTeam.id },
+                create: { id: homeTeam.id, name: homeTeam.name || "Unknown Team" }
+              }
+            },
+            awayTeam: {
+              connectOrCreate: {
+                where: { id: awayTeam.id },
+                create: { id: awayTeam.id, name: awayTeam.name || "Unknown Team" }
+              }
+            },
+            stats: {
+              create: stats.map(s => ({
+                player: {
+                  connectOrCreate: {
+                    where: { id: s.playerId },
+                    create: {
+                      id: s.playerId,
+                      name: s.name || "Unknown Player",
+                      headshotUrl: `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${s.playerId}.png`
+                    }
+                  }
+                },
+                teamId: s.teamId,
+                points: s.points ?? 0,
+                rebounds: s.rebounds ?? 0,
+                assists: s.assists ?? 0,
+                steals: s.steals ?? 0,
+                blocks: s.blocks ?? 0,
+                minutes: s.minutes || null
+              }))
+            }
+          }
+        })
+      } catch (fetchErr) {
+        console.error("Failed to auto-fetch game:", fetchErr)
+        return res.status(404).json({ error: "Game not found and could not be fetched" })
+      }
+    }
 
     const data = {
       rating,
