@@ -1,6 +1,11 @@
 import { prisma } from "../../lib/prisma.js"
 import { exec } from "child_process"
+import { cached } from "../../lib/cache.js"
+import { promisify } from "util"
 import path from "path"
+
+const execAsync = promisify(exec)
+const GAME_SEARCH_CACHE_TTL = 5 * 60 * 1000  // 5 minutes
 
 
 export const getGameById = async (req, res) => {
@@ -129,27 +134,24 @@ export const getGameById = async (req, res) => {
   }
 }
 
-export const searchGames = (req, res) => {
+export const searchGames = async (req, res) => {
   const { q } = req.query
   const scriptPath = path.resolve("python/searchGames.py")
 
-  if (!q) {
-    return res.status(400).json({ error: "Query is required" })
+  if (!q) return res.status(400).json({ error: "Query is required" })
+
+  const key = `games:search:${q.toLowerCase().trim()}`
+
+  try {
+    const games = await cached(key, GAME_SEARCH_CACHE_TTL, async () => {
+      const { stdout } = await execAsync(`python "${scriptPath}" "${q}"`)
+      return JSON.parse(stdout)
+    })
+
+    return res.json(games)
+  } catch (err) {
+    console.error("GAME SEARCH ERROR:", err)
+    return res.status(500).json({ error: "Search failed" })
   }
-
-  exec(`python "${scriptPath}" "${q}"`, (err, stdout) => {
-    if (err) {
-      console.error(err)
-      return res.status(500).json({ error: "Search failed" })
-    }
-
-    try {
-      const data = JSON.parse(stdout)
-      res.json(data)
-    } catch (parseError) {
-      console.error(parseError)
-      res.status(500).json({ error: "Invalid response from Python" })
-    }
-  })
 }
 
