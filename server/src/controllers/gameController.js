@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma.js"
 import { exec } from "child_process"
 import { cached } from "../../lib/cache.js"
 import { promisify } from "util"
+import { findAndSaveHighlight } from "../../lib/youtube.js"
 import path from "path"
 
 const execAsync = promisify(exec)
@@ -16,10 +17,23 @@ export const getGameById = async (req, res) => {
 
     const existingGame = await prisma.game.findUnique({
       where: { id },
-      include: { stats: true }
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        stats: {
+          include: { player: { select: { id: true, name: true, headshotUrl: true } } },
+          orderBy: { points: "desc" }
+        },
+        _count: { select: { reviews: true } }
+      }
     })
 
+
     if (existingGame && existingGame.stats.length > 0) {
+      if (!existingGame.youtubeId) {
+        const videoId = await findAndSaveHighlight(existingGame)
+        existingGame.youtubeId = videoId
+      }
       return res.json(existingGame)
     }
 
@@ -50,6 +64,7 @@ export const getGameById = async (req, res) => {
         gameId,
         homeTeam,
         awayTeam,
+        date,  
         stats = []
       } = data
 
@@ -57,6 +72,7 @@ export const getGameById = async (req, res) => {
       const awayTeamId = awayTeam?.id
       const homeTeamName = homeTeam?.name
       const awayTeamName = awayTeam?.name
+      const gameDate = date ? new Date(date) : null
 
       if (!homeTeamId || !awayTeamId) {
         console.error(" INVALID TEAM DATA:", data)
@@ -69,13 +85,13 @@ export const getGameById = async (req, res) => {
       const game = await prisma.game.upsert({
         where: { id: gameId },
         update: {
+          date: gameDate ?? undefined,
           season: "20" + gameId.slice(3, 5),
           status: stats.length > 0 ? "final" : "no_data"
         },
         create: {
           id: gameId,
-          date: new Date(),
-
+          date: gameDate,   
           season: "20" + gameId.slice(3, 5),
           status: stats.length > 0 ? "final" : "no_data",
 
@@ -124,6 +140,14 @@ export const getGameById = async (req, res) => {
         },
         include: { stats: true }
       })
+      
+      if (!game.youtubeId) {
+        game.youtubeId = await findAndSaveHighlight({
+          ...game,
+          homeTeam: { name: homeTeamName },
+          awayTeam: { name: awayTeamName },
+        })
+      }
 
       return res.json(game)
     })
@@ -186,14 +210,16 @@ export const seedSuggestedGames = async (req, res) => {
 
         await prisma.game.upsert({
           where: { id: s.gameId },
-          update: {
+          update: {                                              
+            date: data.date ? new Date(data.date) : undefined,
             isSuggested: true,
             title: s.title,
             description: s.description,
+            youtubeId: s.youtubeId ?? undefined,
           },
           create: {
             id: s.gameId,
-            date: new Date(),
+            date: data.date ? new Date(data.date) : null,     
             season: "20" + s.gameId.slice(3, 5),
             status: "final",
             isSuggested: true,

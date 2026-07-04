@@ -58,10 +58,11 @@ model Game {
   date          DateTime?
   season        String?  @db.VarChar(20)
   status        String?  @db.VarChar(20)
-  
+
   isSuggested   Boolean  @default(false)
   title         String?             
   description   String?
+  youtubeId     String?
 
   homeTeamId    Int
   awayTeamId    Int

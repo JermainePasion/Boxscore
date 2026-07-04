@@ -4,6 +4,7 @@ import json
 # Curated list of famous/iconic NBA games
 # gameId format: 004 = playoffs, next 2 digits = season year, rest = series/game
 SUGGESTED_GAMES = [
+    
     {
         "gameId": "0041500407",
         "title": "2016 Finals Game 7 — The Block, The Shot",
@@ -15,22 +16,22 @@ SUGGESTED_GAMES = [
         "description": "Kobe's 5th ring. Lakers rally from 13 down against their greatest rivals.",
     },
     {
-        "gameId": "0041200734",
+        "gameId": "0041200406",
         "title": "2013 Finals Game 6 — Ray Allen's Shot",
         "description": "Headband off, no timeouts. Ray Allen's corner three saves the Heat's season.",
     },
     {
-        "gameId": "0029600063",
+        "gameId": "0029400926",   # was 0029600063 (wrong)
         "title": "Jordan's 55-point return at MSG (1995)",
         "description": "The 'double-nickel' game. MJ's statement after returning from baseball.",
     },
     {
-        "gameId": "0021500660",
+        "gameId": "0021501228",   # was 0021500660 (wrong)
         "title": "Kobe's Final Game — 60 Points (2016)",
         "description": "Mamba Out. 60 points on 50 shots in his farewell at Staples Center.",
     },
     {
-        "gameId": "0020500768",
+        "gameId": "0020500591",   # was 0020500768 (wrong)
         "title": "Kobe's 81-Point Game (2006)",
         "description": "Second-highest scoring game in NBA history vs the Raptors.",
     },
@@ -40,7 +41,7 @@ SUGGESTED_GAMES = [
         "description": "Kawhi and the Raptors close out the dynasty Warriors at Oracle.",
     },
     {
-        "gameId": "0042100407",
+        "gameId": "0042100406",
         "title": "2022 Finals Game 6 — Curry's 4th ring",
         "description": "Steph seals Finals MVP with 34 in Boston.",
     },
@@ -50,11 +51,13 @@ SUGGESTED_GAMES = [
         "description": "LeBron's 4th ring with a 3rd franchise, for Kobe.",
     },
     {
-        "gameId": "0022200063",
+        "gameId": "0021501227",   # was 0022200063 (wrong)
         "title": "Warriors 73-win record breaker (2016)",
         "description": "Golden State passes the 95-96 Bulls with win #73.",
     },
 ]
 
+
 if __name__ == "__main__":
     print(json.dumps(SUGGESTED_GAMES))
+
