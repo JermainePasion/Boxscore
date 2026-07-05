@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "../lib/api"
 import { TEAM_COLORS, teamLogo } from "../utils/teamColors"
 import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
+import PlayerHeadshot from "../components/PlayerHeadshot"
 
-function BoxScoreTable({ teamName, teamId, stats }) {
+function BoxScoreTable({ teamName, teamId, stats, season}) {
+
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-3">
@@ -31,11 +33,11 @@ function BoxScoreTable({ teamName, teamId, stats }) {
               <tr key={s.id} className="border-t border-line hover:bg-surface-hover transition-colors">
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <img
-                      src={s.player?.headshotUrl}
-                      alt=""
+                    <PlayerHeadshot
+                      playerId={s.player?.id}
+                      teamId={s.teamId}
+                      season={season}
                       className="w-7 h-7 rounded-full object-cover bg-primary"
-                      onError={e => { e.target.style.display = "none" }}
                     />
                     <span className="font-medium text-white whitespace-nowrap">
                       {s.player?.name}
@@ -56,7 +58,6 @@ function BoxScoreTable({ teamName, teamId, stats }) {
     </div>
   )
 }
-
 export default function GameDetail() {
   const { id } = useParams()
   const [playing, setPlaying] = useState(false)
@@ -83,6 +84,7 @@ export default function GameDetail() {
   const gameDate = game.date
     ? new Date(game.date).toLocaleDateString("en-US", {
         day: "numeric", month: "long", year: "numeric",
+        timeZone: "UTC",
       })
     : null
 
@@ -201,6 +203,7 @@ export default function GameDetail() {
           teamName={game.awayTeam?.name}
           teamId={game.awayTeamId}
           stats={awayStats}
+          season={game.season}
         />
       )}
       {homeStats.length > 0 && (
@@ -208,6 +211,7 @@ export default function GameDetail() {
           teamName={game.homeTeam?.name}
           teamId={game.homeTeamId}
           stats={homeStats}
+          season={game.season}
         />
       )}
 
