@@ -18,21 +18,20 @@ export const getGameById = async (req, res) => {
     const existingGame = await prisma.game.findUnique({
       where: { id },
       include: {
-        homeTeam: true,
-        awayTeam: true,
-        stats: {
-          include: { player: { select: { id: true, name: true, headshotUrl: true } } },
-          orderBy: { points: "desc" }
-        },
-        _count: { select: { reviews: true } }
-      }
+          homeTeam: true,
+          awayTeam: true,
+          stats: {
+            include: { player: { select: { id: true, name: true, headshotUrl: true } } },
+            orderBy: { points: "desc" }
+          },
+          _count: { select: { reviews: true } }
+        }
     })
 
-
-    if (existingGame && existingGame.stats.length > 0) {
+    // Only early-return when the game is complete AND has a real date
+    if (existingGame && existingGame.stats.length > 0 && existingGame.date) {
       if (!existingGame.youtubeId) {
-        const videoId = await findAndSaveHighlight(existingGame)
-        existingGame.youtubeId = videoId
+        existingGame.youtubeId = await findAndSaveHighlight(existingGame)
       }
       return res.json(existingGame)
     }

@@ -13,7 +13,7 @@ export const findAndSaveHighlight = async (game) => {
 
   const d = game.date ? new Date(game.date) : null
   const dateStr = d
-    ? d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    ? d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
     : ""
 
   // Mirror the NBA channel title format exactly:
@@ -57,9 +57,9 @@ export const findAndSaveHighlight = async (game) => {
       if (awayIdx !== -1 && homeIdx !== -1 && awayIdx < homeIdx) score += 15
 
       if (d) {
-        const month = d.toLocaleDateString("en-US", { month: "long" })
-        const day = String(d.getDate())
-        const year = String(d.getFullYear())
+        const month = d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" })
+        const day = String(d.getUTCDate())
+        const year = String(d.getUTCFullYear())
         const hasMonth = t.includes(month.toLowerCase())
         const hasDay = new RegExp(`\\b${day}\\b`).test(title)
         const hasYear = title.includes(year)

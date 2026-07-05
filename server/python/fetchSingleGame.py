@@ -1,20 +1,18 @@
-from nba_api.stats.endpoints import boxscoretraditionalv3, boxscoresummaryv2
+from nba_api.stats.endpoints import boxscoretraditionalv3, boxscoresummaryv3
 import json
 import sys
 
 def get_game_date(game_id):
-    """Fetch the real game date from the summary endpoint."""
-    try:
-        summary = boxscoresummaryv2.BoxScoreSummaryV2(game_id=game_id)
-        data = summary.get_dict()
-
-        headers = data["resultSets"][0]["headers"]
-        row = data["resultSets"][0]["rowSet"][0]
-        date_idx = headers.index("GAME_DATE_EST")
-
-        return row[date_idx]  # e.g. "2016-06-19T00:00:00"
-    except Exception:
-        return None
+    for attempt in range(2):
+        try:
+            summary = boxscoresummaryv3.BoxScoreSummaryV3(game_id=game_id, timeout=60)
+            data = summary.get_dict()
+            box = data.get("boxScoreSummary", {})
+            return box.get("gameEt") or box.get("gameTimeUTC") or None
+        except Exception as e:
+            print(f"date fetch attempt {attempt+1} failed: {e}", file=sys.stderr)
+            time.sleep(1)
+    return None
 
 
 def get_game_data(game_id):
@@ -66,7 +64,7 @@ def get_game_data(game_id):
     return {
         "gameId": game_id,
         "available": True,
-        "date": get_game_date(game_id),   # ← new
+        "date": get_game_date(game_id),
 
         "homeTeam": {
             "id": home_team_id,
@@ -79,7 +77,7 @@ def get_game_data(game_id):
             "id": away_team_id,
             "name": away_team.get("teamName"),
             "city": away_team.get("teamCity"),
-            "tricode": away_team.get("tricode") or away_team.get("teamTricode")
+            "tricode": away_team.get("teamTricode")
         },
 
         "playerCount": len(players),
