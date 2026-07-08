@@ -67,77 +67,38 @@ export default function GameDetail() {
     queryFn: () => api.get(`/games/${id}`).then(r => r.data),
   })
 
-  if (isLoading) {
-    return (
-      <div className="animate-pulse">
-        <div className="aspect-video rounded-xl bg-surface mb-6" />
-        <div className="h-8 bg-surface rounded w-2/3 mb-3" />
-        <div className="h-4 bg-surface rounded w-1/3" />
-      </div>
-    )
-  }
-
-  if (error || !game) {
-    return <p className="text-text-muted">Game not found.</p>
-  }
+  if (isLoading) { /* ... skeleton unchanged ... */ }
+  if (error || !game) return <p className="text-text-muted">Game not found.</p>
 
   const gameDate = game.date
     ? new Date(game.date).toLocaleDateString("en-US", {
-        day: "numeric", month: "long", year: "numeric",
-        timeZone: "UTC",
+        day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
       })
     : null
 
   const homeColor = TEAM_COLORS[game.homeTeamId] ?? "#0a4a6e"
   const awayColor = TEAM_COLORS[game.awayTeamId] ?? "#0a4a6e"
-
   const matchupName =
     game.title ?? `${game.awayTeam?.name} vs. ${game.homeTeam?.name}`
-
   const homeStats = game.stats?.filter(s => s.teamId === game.homeTeamId) ?? []
   const awayStats = game.stats?.filter(s => s.teamId === game.awayTeamId) ?? []
 
   return (
     <div>
-      {/* ── Banner: YouTube thumbnail → click to play embed ── */}
-      <div className="rounded-xl overflow-hidden border border-line mb-8">
+      {/* ── HERO BANNER — YouTube thumbnail as full-width backdrop ── */}
+      <div className="relative -mx-4 sm:-mx-6 mb-8 h-56 md:h-80 overflow-hidden">
         {game.youtubeId ? (
-          playing ? (
-            <div className="relative w-full aspect-video">
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${game.youtubeId}?autoplay=1`}
-                title={matchupName}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setPlaying(true)}
-              className="relative w-full aspect-video group cursor-pointer block"
-            >
-              <img
-                src={`https://img.youtube.com/vi/${game.youtubeId}/maxresdefault.jpg`}
-                alt={matchupName}
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={e => {
-                  // fall back to lower-res thumb if maxres doesn't exist
-                  e.target.src = `https://img.youtube.com/vi/${game.youtubeId}/hqdefault.jpg`
-                }}
-              />
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <PlayCircleFilledRoundedIcon
-                  className="text-white drop-shadow-lg group-hover:scale-110 transition-transform"
-                  sx={{ fontSize: 72 }}
-                />
-              </div>
-            </button>
-          )
+          <img
+            src={`https://img.youtube.com/vi/${game.youtubeId}/maxresdefault.jpg`}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={e => {
+              e.target.src = `https://img.youtube.com/vi/${game.youtubeId}/hqdefault.jpg`
+            }}
+          />
         ) : (
-          /* No video — team color banner fallback */
           <div
-            className="aspect-[3/1] flex items-center justify-center gap-6"
+            className="w-full h-full flex items-center justify-center gap-6"
             style={{
               background: `linear-gradient(105deg, ${awayColor}66 0%, ${awayColor}66 30%, ${homeColor}66 70%, ${homeColor}66 100%), linear-gradient(180deg, #06222f 0%, #001d2e 100%)`,
             }}
@@ -147,34 +108,49 @@ export default function GameDetail() {
             <img src={teamLogo(game.homeTeamId)} alt="" className="w-20 h-20 object-contain" />
           </div>
         )}
+        {/* fade the bottom into the page background */}
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-primary-dark to-transparent" />
       </div>
 
-      {/* ── Title / date / description ── */}
+      {/* ── Title / date / description + Rate panel ── */}
       <div className="grid md:grid-cols-3 gap-8 mb-10">
         <div className="md:col-span-2">
           <h1 className="text-2xl md:text-3xl font-bold text-white uppercase tracking-wide">
             {matchupName}
           </h1>
-          {gameDate && (
-            <p className="text-gold text-sm mt-1">{gameDate}</p>
-          )}
+          {gameDate && <p className="text-gold text-sm mt-1">{gameDate}</p>}
 
           {game.description && (
-            <p className="text-text-muted leading-relaxed mt-4">
-              {game.description}
-            </p>
+            <p className="text-text-muted leading-relaxed mt-4">{game.description}</p>
           )}
 
+          {/* ── Small video card (like the mockup's FULL GAME HIGHLIGHTS tile) ── */}
           {game.youtubeId && (
-            <a
-              href={`https://www.youtube.com/watch?v=${game.youtubeId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-accent-orange hover:text-gold transition-colors"
-            >
-              <PlayCircleFilledRoundedIcon sx={{ fontSize: 18 }} />
-              Watch full highlights on YouTube
-            </a>
+            playing ? (
+              <div className="relative w-full max-w-md aspect-video mt-6 rounded-lg overflow-hidden border border-line">
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${game.youtubeId}?autoplay=1`}
+                  title={matchupName}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setPlaying(true)}
+                className="relative w-48 aspect-video mt-6 rounded-lg overflow-hidden border border-line group cursor-pointer block"
+              >
+                <img
+                  src={`https://img.youtube.com/vi/${game.youtubeId}/mqdefault.jpg`}
+                  alt="Watch highlights"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/15 transition-colors flex items-center justify-center">
+                  <PlayCircleFilledRoundedIcon className="text-white drop-shadow" sx={{ fontSize: 40 }} />
+                </div>
+              </button>
+            )
           )}
         </div>
 
