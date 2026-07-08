@@ -279,16 +279,22 @@ export const getSuggestedGames = async (req, res) => {
       include: {
         homeTeam: { select: { id: true, name: true, abbreviation: true } },
         awayTeam: { select: { id: true, name: true, abbreviation: true } },
-        _count: { select: { reviews: true } }
+        _count: { select: { reviews: true } },
+        stats: {
+          select: {
+            teamId: true, playerId: true,
+            points: true, rebounds: true, assists: true,
+            player: { select: { headshotUrl: true } }
+          }
+        }
       }
     })
-    return res.json(games)
+    return res.json(games.map(buildCardData))
   } catch (err) {
     console.error("getSuggestedGames error:", err)
     return res.status(500).json({ error: "Failed to fetch suggested games" })
   }
 }
-
 
 export const getPopularGames = async (req, res) => {
   try {
@@ -296,14 +302,46 @@ export const getPopularGames = async (req, res) => {
       include: {
         homeTeam: { select: { id: true, name: true, abbreviation: true } },
         awayTeam: { select: { id: true, name: true, abbreviation: true } },
-        _count: { select: { reviews: true } }
+        _count: { select: { reviews: true } },
+        stats: {
+          select: {
+            teamId: true, playerId: true,
+            points: true, rebounds: true, assists: true,
+            player: { select: { headshotUrl: true } }
+          }
+        }
       },
       orderBy: { reviews: { _count: "desc" } },
       take: 10
     })
-    return res.json(games)
+    return res.json(games.map(buildCardData))
   } catch (err) {
     console.error("getPopularGames error:", err)
     return res.status(500).json({ error: "Failed to fetch popular games" })
+  }
+}
+
+const buildCardData = (game) => {
+  const forTeam = (teamId) => {
+    const teamStats = game.stats.filter(s => s.teamId === teamId)
+    const leader = (key) => {
+      const top = [...teamStats].sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))[0]
+      return top
+        ? { playerId: top.playerId, value: top[key] ?? 0, headshotUrl: top.player?.headshotUrl }
+        : null
+    }
+    return {
+      total: teamStats.reduce((sum, s) => sum + (s.points ?? 0), 0),
+      points: leader("points"),
+      rebounds: leader("rebounds"),
+      assists: leader("assists"),
+    }
+  }
+
+  const { stats, ...rest } = game
+  return {
+    ...rest,
+    home: forTeam(game.homeTeamId),
+    away: forTeam(game.awayTeamId),
   }
 }
