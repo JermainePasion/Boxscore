@@ -8,6 +8,45 @@ import path from "path"
 const execAsync = promisify(exec)
 const GAME_SEARCH_CACHE_TTL = 5 * 60 * 1000  // 5 minutes
 
+const HEADSHOT_URL = (playerId) =>
+  `https://cdn.nba.com/headshots/nba/latest/1040x760/${playerId}.png`
+
+// Shared include so early-return and fresh-fetch responses have the same shape
+const GAME_INCLUDE = {
+  homeTeam: true,
+  awayTeam: true,
+  stats: {
+    include: { player: { select: { id: true, name: true, headshotUrl: true } } },
+    orderBy: { points: "desc" }
+  },
+  _count: { select: { reviews: true } }
+}
+
+// Build lightweight card data: per-team leaders + totals
+const buildCardData = (game) => {
+  const forTeam = (teamId) => {
+    const teamStats = game.stats.filter(s => s.teamId === teamId)
+    const leader = (key) => {
+      const top = [...teamStats].sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))[0]
+      return top
+        ? { playerId: top.playerId, value: top[key] ?? 0, headshotUrl: top.player?.headshotUrl }
+        : null
+    }
+    return {
+      total: teamStats.reduce((sum, s) => sum + (s.points ?? 0), 0),
+      points: leader("points"),
+      rebounds: leader("rebounds"),
+      assists: leader("assists"),
+    }
+  }
+
+  const { stats, ...rest } = game
+  return {
+    ...rest,
+    home: forTeam(game.homeTeamId),
+    away: forTeam(game.awayTeamId),
+  }
+}
 
 export const getGameById = async (req, res) => {
   const { id } = req.params
@@ -17,15 +56,7 @@ export const getGameById = async (req, res) => {
 
     const existingGame = await prisma.game.findUnique({
       where: { id },
-      include: {
-          homeTeam: true,
-          awayTeam: true,
-          stats: {
-            include: { player: { select: { id: true, name: true, headshotUrl: true } } },
-            orderBy: { points: "desc" }
-          },
-          _count: { select: { reviews: true } }
-        }
+      include: GAME_INCLUDE
     })
 
     // Only early-return when the game is complete AND has a real date
@@ -63,7 +94,7 @@ export const getGameById = async (req, res) => {
         gameId,
         homeTeam,
         awayTeam,
-        date,  
+        date,
         stats = []
       } = data
 
@@ -90,7 +121,7 @@ export const getGameById = async (req, res) => {
         },
         create: {
           id: gameId,
-          date: gameDate,   
+          date: gameDate,
           season: "20" + gameId.slice(3, 5),
           status: stats.length > 0 ? "final" : "no_data",
 
@@ -123,7 +154,7 @@ export const getGameById = async (req, res) => {
                     id: s.playerId,
                     name: s.name || "Unknown Player",
                     position: s.position || null,
-                    headshotUrl: `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${s.playerId}.png`
+                    headshotUrl: HEADSHOT_URL(s.playerId)
                   }
                 }
               },
@@ -137,15 +168,11 @@ export const getGameById = async (req, res) => {
             }))
           }
         },
-        include: { stats: true }
+        include: GAME_INCLUDE
       })
-      
+
       if (!game.youtubeId) {
-        game.youtubeId = await findAndSaveHighlight({
-          ...game,
-          homeTeam: { name: homeTeamName },
-          awayTeam: { name: awayTeamName },
-        })
+        game.youtubeId = await findAndSaveHighlight(game)
       }
 
       return res.json(game)
@@ -177,6 +204,7 @@ export const searchGames = async (req, res) => {
     return res.status(500).json({ error: "Search failed" })
   }
 }
+
 
 export const smartSearch = async (req, res) => {
   const { q } = req.query
@@ -215,12 +243,11 @@ export const seedSuggestedGames = async (req, res) => {
 
     const results = []
 
-    // Fetch each game's full data via your existing single-game script
     for (const s of suggestions) {
       try {
         const fetchPath = path.resolve("python", "fetchSingleGame.py")
         const { execSync } = await import("child_process")
-        const gameStdout = execSync(`python "${fetchPath}" ${s.gameId}`, { timeout: 30000 }).toString()
+        const gameStdout = execSync(`python "${fetchPath}" ${s.gameId}`, { timeout: 60000 }).toString()
         const data = JSON.parse(gameStdout.trim())
 
         if (data.error || !data.homeTeam?.id) {
@@ -230,7 +257,7 @@ export const seedSuggestedGames = async (req, res) => {
 
         await prisma.game.upsert({
           where: { id: s.gameId },
-          update: {                                              
+          update: {
             date: data.date ? new Date(data.date) : undefined,
             isSuggested: true,
             title: s.title,
@@ -239,12 +266,13 @@ export const seedSuggestedGames = async (req, res) => {
           },
           create: {
             id: s.gameId,
-            date: data.date ? new Date(data.date) : null,     
+            date: data.date ? new Date(data.date) : null,
             season: "20" + s.gameId.slice(3, 5),
             status: "final",
             isSuggested: true,
             title: s.title,
             description: s.description,
+            youtubeId: s.youtubeId ?? null,
             homeTeam: {
               connectOrCreate: {
                 where: { id: data.homeTeam.id },
@@ -265,7 +293,7 @@ export const seedSuggestedGames = async (req, res) => {
                     create: {
                       id: st.playerId,
                       name: st.name || "Unknown Player",
-                      headshotUrl: `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${st.playerId}.png`
+                      headshotUrl: HEADSHOT_URL(st.playerId)
                     }
                   }
                 },
@@ -317,6 +345,7 @@ export const getSuggestedGames = async (req, res) => {
   }
 }
 
+
 export const getPopularGames = async (req, res) => {
   try {
     const games = await prisma.game.findMany({
@@ -339,30 +368,5 @@ export const getPopularGames = async (req, res) => {
   } catch (err) {
     console.error("getPopularGames error:", err)
     return res.status(500).json({ error: "Failed to fetch popular games" })
-  }
-}
-
-const buildCardData = (game) => {
-  const forTeam = (teamId) => {
-    const teamStats = game.stats.filter(s => s.teamId === teamId)
-    const leader = (key) => {
-      const top = [...teamStats].sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))[0]
-      return top
-        ? { playerId: top.playerId, value: top[key] ?? 0, headshotUrl: top.player?.headshotUrl }
-        : null
-    }
-    return {
-      total: teamStats.reduce((sum, s) => sum + (s.points ?? 0), 0),
-      points: leader("points"),
-      rebounds: leader("rebounds"),
-      assists: leader("assists"),
-    }
-  }
-
-  const { stats, ...rest } = game
-  return {
-    ...rest,
-    home: forTeam(game.homeTeamId),
-    away: forTeam(game.awayTeamId),
   }
 }
