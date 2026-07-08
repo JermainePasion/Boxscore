@@ -1,6 +1,7 @@
 from nba_api.stats.endpoints import boxscoretraditionalv3, boxscoresummaryv3
 import json
 import sys
+import time
 
 def get_game_date(game_id):
     for attempt in range(2):
@@ -16,8 +17,19 @@ def get_game_date(game_id):
 
 
 def get_game_data(game_id):
-    boxscore = boxscoretraditionalv3.BoxScoreTraditionalV3(game_id=game_id)
+    boxscore = None
+    for attempt in range(2):
+        try:
+            boxscore = boxscoretraditionalv3.BoxScoreTraditionalV3(game_id=game_id, timeout=60)
+            break
+        except Exception as e:
+            print(f"boxscore attempt {attempt+1} failed: {e}", file=sys.stderr)
+            time.sleep(1)
+    if boxscore is None:
+        return {"gameId": game_id, "available": False, "reason": "boxscore fetch failed"}
+
     data = boxscore.get_dict()
+
 
     box = data.get("boxScoreTraditional")
 

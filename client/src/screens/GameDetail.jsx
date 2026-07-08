@@ -2,16 +2,16 @@ import { useState } from "react"
 import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "../lib/api"
-import { TEAM_COLORS, teamLogo } from "../utils/teamColors"
-import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
+import { TEAM_COLORS } from "../utils/teamColors"
+import TeamLogoImg from "../components/TeamLogo"
 import PlayerHeadshot from "../components/PlayerHeadshot"
+import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
 
-function BoxScoreTable({ teamName, teamId, stats, season}) {
-
+function BoxScoreTable({ teamName, teamId, stats, season }) {
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-3">
-        <img src={teamLogo(teamId)} alt={teamName} className="w-6 h-6 object-contain" />
+        <TeamLogoImg teamId={teamId} alt={teamName} className="w-6 h-6 object-contain" />
         <h3 className="font-semibold text-white">{teamName}</h3>
       </div>
 
@@ -37,7 +37,7 @@ function BoxScoreTable({ teamName, teamId, stats, season}) {
                       playerId={s.player?.id}
                       teamId={s.teamId}
                       season={season}
-                      className="w-7 h-7 rounded-full object-cover bg-primary"
+                      className="w-7 h-7 rounded-full object-cover object-top bg-primary"
                     />
                     <span className="font-medium text-white whitespace-nowrap">
                       {s.player?.name}
@@ -58,28 +58,63 @@ function BoxScoreTable({ teamName, teamId, stats, season}) {
     </div>
   )
 }
+
 export default function GameDetail() {
   const { id } = useParams()
   const [playing, setPlaying] = useState(false)
 
-  const { data: game, isLoading, error } = useQuery({
+  const { data: game, isLoading, isError, failureCount, refetch } = useQuery({
     queryKey: ["game", id],
-    queryFn: () => api.get(`/games/${id}`).then(r => r.data),
+    queryFn: () => api.get(`/games/${id}`, { timeout: 45000 }).then(r => r.data),
+    retry: 2,          // cold games hit the NBA API and can flake transiently
+    retryDelay: 2000,
   })
 
-  if (isLoading) { /* ... skeleton unchanged ... */ }
-  if (error || !game) return <p className="text-text-muted">Game not found.</p>
+  if (isLoading) {
+    return (
+      <div className="animate-pulse">
+        <div className="aspect-video rounded-xl bg-surface mb-6" />
+        <div className="h-8 bg-surface rounded w-2/3 mb-3" />
+        <div className="h-4 bg-surface rounded w-1/3 mb-6" />
+        <p className="text-text-muted text-sm">
+          {failureCount > 0
+            ? "Still fetching game data from the NBA — this can take a moment for first-time games…"
+            : "Loading game…"}
+        </p>
+      </div>
+    )
+  }
+
+  if (isError || !game) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-text-muted mb-4">Couldn't load this game right now.</p>
+        <button
+          onClick={() => refetch()}
+          className="px-5 py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors"
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
 
   const gameDate = game.date
     ? new Date(game.date).toLocaleDateString("en-US", {
-        day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+        day: "numeric", month: "long", year: "numeric",
+        timeZone: "UTC",
       })
     : null
 
   const homeColor = TEAM_COLORS[game.homeTeamId] ?? "#0a4a6e"
   const awayColor = TEAM_COLORS[game.awayTeamId] ?? "#0a4a6e"
+
   const matchupName =
-    game.title ?? `${game.awayTeam?.name} vs. ${game.homeTeam?.name}`
+    game.title ??
+    (game.awayTeam && game.homeTeam
+      ? `${game.awayTeam.name} vs. ${game.homeTeam.name}`
+      : "Unknown Matchup")
+
   const homeStats = game.stats?.filter(s => s.teamId === game.homeTeamId) ?? []
   const awayStats = game.stats?.filter(s => s.teamId === game.awayTeamId) ?? []
 
@@ -103,12 +138,11 @@ export default function GameDetail() {
               background: `linear-gradient(105deg, ${awayColor}66 0%, ${awayColor}66 30%, ${homeColor}66 70%, ${homeColor}66 100%), linear-gradient(180deg, #06222f 0%, #001d2e 100%)`,
             }}
           >
-            <img src={teamLogo(game.awayTeamId)} alt="" className="w-20 h-20 object-contain" />
+            <TeamLogoImg teamId={game.awayTeamId} className="w-20 h-20 object-contain" />
             <span className="text-white/80 font-bold text-2xl">VS</span>
-            <img src={teamLogo(game.homeTeamId)} alt="" className="w-20 h-20 object-contain" />
+            <TeamLogoImg teamId={game.homeTeamId} className="w-20 h-20 object-contain" />
           </div>
         )}
-        {/* fade the bottom into the page background */}
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-primary-dark to-transparent" />
       </div>
 
@@ -124,7 +158,7 @@ export default function GameDetail() {
             <p className="text-text-muted leading-relaxed mt-4">{game.description}</p>
           )}
 
-          {/* ── Small video card (like the mockup's FULL GAME HIGHLIGHTS tile) ── */}
+          {/* Small video card */}
           {game.youtubeId && (
             playing ? (
               <div className="relative w-full max-w-md aspect-video mt-6 rounded-lg overflow-hidden border border-line">
@@ -154,7 +188,7 @@ export default function GameDetail() {
           )}
         </div>
 
-        {/* Rating / review panel — placeholder for now */}
+        {/* Rate panel */}
         <div className="bg-primary rounded-xl border border-line p-5 h-fit">
           <h2 className="text-center font-semibold text-white mb-4">Rate</h2>
           <p className="text-center text-text-muted text-sm mb-4">

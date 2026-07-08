@@ -178,6 +178,27 @@ export const searchGames = async (req, res) => {
   }
 }
 
+export const smartSearch = async (req, res) => {
+  const { q } = req.query
+  if (!q?.trim()) return res.status(400).json({ error: "Query required" })
+
+  const key = `games:smart:${q.toLowerCase().trim()}`
+  const scriptPath = path.resolve("python", "smartSearch.py")
+
+  try {
+    const results = await cached(key, GAME_SEARCH_CACHE_TTL, async () => {
+      const { stdout } = await execAsync(`python "${scriptPath}" "${q.replace(/"/g, "")}"`)
+      const parsed = JSON.parse(stdout.trim())
+      if (parsed.error) throw new Error(parsed.error)
+      return parsed
+    })
+    return res.json(results)
+  } catch (err) {
+    console.error("SMART SEARCH ERROR:", err)
+    return res.status(500).json({ error: "Search failed" })
+  }
+}
+
 
 export const seedSuggestedGames = async (req, res) => {
   const scriptPath = path.resolve("python", "seedSuggestedGames.py")
