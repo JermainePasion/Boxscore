@@ -370,3 +370,22 @@ export const getPopularGames = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch popular games" })
   }
 }
+
+export const getGameShots = async (req, res) => {
+  const { id } = req.params
+  const key = `games:shots:${id}`
+
+  try {
+    const shots = await cached(key, 24 * 60 * 60 * 1000, async () => {
+      const scriptPath = path.resolve("python", "shotChart.py")
+      const { stdout } = await execAsync(`python "${scriptPath}" ${id}`, { timeout: 90000 })
+      const parsed = JSON.parse(stdout.trim())
+      if (parsed.error) throw new Error(parsed.error)
+      return parsed
+    })
+    return res.json(shots)
+  } catch (err) {
+    console.error("SHOT CHART ERROR:", err)
+    return res.status(500).json({ error: "Failed to fetch shot chart" })
+  }
+}

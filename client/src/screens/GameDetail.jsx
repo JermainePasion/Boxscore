@@ -1,13 +1,17 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "../lib/api"
 import { TEAM_COLORS } from "../utils/teamColors"
 import TeamLogoImg from "../components/TeamLogo"
 import PlayerHeadshot from "../components/PlayerHeadshot"
+import GameLeaders from "../components/GameDetail/GameLeaders"
+import ShotChart from "../components/GameDetail/ShotChart"
 import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
 
 function BoxScoreTable({ teamName, teamId, stats, season }) {
+
+  
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-3">
@@ -37,7 +41,7 @@ function BoxScoreTable({ teamName, teamId, stats, season }) {
                       playerId={s.player?.id}
                       teamId={s.teamId}
                       season={season}
-                      className="w-7 h-7 rounded-full object-cover object-top bg-primary"
+                      className="w-7 h-7 rounded-full bg-primary"
                     />
                     <span className="font-medium text-white whitespace-nowrap">
                       {s.player?.name}
@@ -59,16 +63,46 @@ function BoxScoreTable({ teamName, teamId, stats, season }) {
   )
 }
 
+const TABS = [
+  { id: "box", label: "Box Score" },
+  { id: "leaders", label: "Game Leaders" },
+  { id: "charts", label: "Game Charts" },
+]
+
 export default function GameDetail() {
   const { id } = useParams()
   const [playing, setPlaying] = useState(false)
+  const [activeTab, setActiveTab] = useState("box")
+  const tabRefs = useRef({})
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 })
+  const [ready, setReady] = useState(false)
+
 
   const { data: game, isLoading, isError, failureCount, refetch } = useQuery({
     queryKey: ["game", id],
     queryFn: () => api.get(`/games/${id}`, { timeout: 45000 }).then(r => r.data),
-    retry: 2,          // cold games hit the NBA API and can flake transiently
+    retry: 2,
     retryDelay: 2000,
   })
+
+  useEffect(() => {
+    const measure = () => {
+      const el = tabRefs.current[activeTab]
+      if (el) {
+        setIndicator({ left: el.offsetLeft, width: el.offsetWidth })
+        setReady(true)
+      }
+    }
+
+    const raf = requestAnimationFrame(measure)
+    document.fonts?.ready.then(measure)
+    window.addEventListener("resize", measure)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener("resize", measure)
+    }
+  }, [activeTab, isLoading])   
+
 
   if (isLoading) {
     return (
@@ -200,34 +234,55 @@ export default function GameDetail() {
         </div>
       </div>
 
-      {/* ── Box score ── */}
-      <div className="flex items-center gap-4 mb-6">
-        <h2 className="text-sm font-semibold tracking-widest text-white uppercase">
-          Box Score
-        </h2>
-        <div className="flex-1 h-px bg-accent-red" />
+      {/* ── Tabs: Box Score / Game Leaders / Game Charts ── */}
+      <div className="relative flex items-center justify-center gap-10 border-b border-line mb-6">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            ref={el => (tabRefs.current[t.id] = el)}
+            onClick={() => setActiveTab(t.id)}
+            className={`pb-3 text-sm font-medium transition-colors ${
+              activeTab === t.id ? "text-white" : "text-text-muted hover:text-white"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <span
+          className={`absolute bottom-0 h-0.5 bg-accent-red ${ready ? "transition-all duration-300 ease-out" : ""}`}
+          style={{ left: indicator.left, width: indicator.width }}
+        />
       </div>
 
-      {awayStats.length > 0 && (
-        <BoxScoreTable
-          teamName={game.awayTeam?.name}
-          teamId={game.awayTeamId}
-          stats={awayStats}
-          season={game.season}
-        />
-      )}
-      {homeStats.length > 0 && (
-        <BoxScoreTable
-          teamName={game.homeTeam?.name}
-          teamId={game.homeTeamId}
-          stats={homeStats}
-          season={game.season}
-        />
+      {activeTab === "box" && (
+        <>
+          {awayStats.length > 0 && (
+            <BoxScoreTable
+              teamName={game.awayTeam?.name}
+              teamId={game.awayTeamId}
+              stats={awayStats}
+              season={game.season}
+            />
+          )}
+          {homeStats.length > 0 && (
+            <BoxScoreTable
+              teamName={game.homeTeam?.name}
+              teamId={game.homeTeamId}
+              stats={homeStats}
+              season={game.season}
+            />
+          )}
+          {game.stats?.length === 0 && (
+            <p className="text-text-muted text-sm">No box score data available for this game.</p>
+          )}
+        </>
       )}
 
-      {game.stats?.length === 0 && (
-        <p className="text-text-muted text-sm">No box score data available for this game.</p>
+      {activeTab === "leaders" && (
+        <GameLeaders game={game} awayStats={awayStats} homeStats={homeStats} />
       )}
+
+      {activeTab === "charts" && <ShotChart game={game} />}
     </div>
   )
 }

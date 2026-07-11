@@ -1,4 +1,5 @@
-// src/utils/teamColors.js
+const API_BASE = "http://localhost:5000"
+
 export const TEAM_COLORS = {
   1610612737: "#E03A3E", // Hawks
   1610612738: "#007A33", // Celtics
@@ -32,5 +33,4 @@ export const TEAM_COLORS = {
   1610612766: "#1D1160", // Hornets
 }
 
-export const teamLogo = (teamId) =>
-  `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
+export const teamLogo = (teamId) => `${API_BASE}/api/img/logo/${teamId}`

@@ -13,6 +13,7 @@ import pyramidRoutes from './src/routes/pyramidRoutes.js'
 import userRoutes from "./src/routes/userRoutes.js"
 import followRoutes from "./src/routes/followRoutes.js"
 import feedRoutes from "./src/routes/feedRoutes.js"
+import imgRoutes from "./src/routes/imgRoutes.js"
 
 const app = express()
 
@@ -28,6 +29,8 @@ app.use("/api/pyramid", pyramidRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/follow", followRoutes)
 app.use("/api/feed", feedRoutes)
+
+app.use("/api/img", imgRoutes)
 
 const PORT = process.env.PORT || 5000
 
