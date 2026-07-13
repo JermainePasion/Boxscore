@@ -12,6 +12,7 @@ import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRou
 import BasketballRating from "../components/GameDetail/BasketballRating"
 import AuthModal from "../components/AuthModal"
 import ReviewModal from "../components/GameDetail/ReviewModal"
+import GameReviews from "../components/GameDetail/GameReviews"
 
 function BoxScoreTable({ teamName, teamId, stats, season }) {
 
@@ -71,6 +72,7 @@ const TABS = [
   { id: "box", label: "Box Score" },
   { id: "leaders", label: "Game Leaders" },
   { id: "charts", label: "Game Charts" },
+  { id: "reviews", label: "Reviews" },
 ]
 
 export default function GameDetail() {
@@ -95,10 +97,13 @@ export default function GameDetail() {
     retryDelay: 2000,
   })
 
-  const quickRate = useMutation({
+   const quickRate = useMutation({
     mutationFn: (rating) =>
       api.post("/reviews", { gameId: id, rating }).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["game", id] }),
+    onSuccess: () => {                                        // ← replace the old one-liner
+      qc.invalidateQueries({ queryKey: ["game", id] })
+      qc.invalidateQueries({ queryKey: ["reviews", id] })
+    },
   })
 
 
@@ -318,6 +323,8 @@ export default function GameDetail() {
       )}
 
       {activeTab === "charts" && <ShotChart game={game} />}
+
+      {activeTab === "reviews" && <GameReviews game={game} />}
 
       <ReviewModal
         open={reviewOpen}
