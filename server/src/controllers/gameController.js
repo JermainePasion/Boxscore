@@ -19,6 +19,10 @@ const GAME_INCLUDE = {
     include: { player: { select: { id: true, name: true, headshotUrl: true } } },
     orderBy: { points: "desc" }
   },
+  reviews: {
+    include: { user: { select: { id: true, username: true } } },
+    orderBy: { createdAt: "desc" },
+  },
   _count: { select: { reviews: true } }
 }
 

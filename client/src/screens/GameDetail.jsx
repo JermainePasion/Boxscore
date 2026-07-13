@@ -1,13 +1,17 @@
 import { useState, useRef, useEffect } from "react"
 import { useParams } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../lib/api"
+import { useAuth } from "../context/AuthContext"   
 import { TEAM_COLORS } from "../utils/teamColors"
 import TeamLogoImg from "../components/TeamLogo"
 import PlayerHeadshot from "../components/PlayerHeadshot"
 import GameLeaders from "../components/GameDetail/GameLeaders"
 import ShotChart from "../components/GameDetail/ShotChart"
 import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
+import BasketballRating from "../components/GameDetail/BasketballRating"
+import AuthModal from "../components/AuthModal"
+import ReviewModal from "../components/GameDetail/ReviewModal"
 
 function BoxScoreTable({ teamName, teamId, stats, season }) {
 
@@ -77,6 +81,12 @@ export default function GameDetail() {
   const [indicator, setIndicator] = useState({ left: 0, width: 0 })
   const [ready, setReady] = useState(false)
 
+  const [reviewOpen, setReviewOpen] = useState(false)    
+  const [authOpen, setAuthOpen] = useState(false)       
+
+  const { isAuthed, user } = useAuth()                    
+  const qc = useQueryClient()      
+
 
   const { data: game, isLoading, isError, failureCount, refetch } = useQuery({
     queryKey: ["game", id],
@@ -84,6 +94,13 @@ export default function GameDetail() {
     retry: 2,
     retryDelay: 2000,
   })
+
+  const quickRate = useMutation({
+    mutationFn: (rating) =>
+      api.post("/reviews", { gameId: id, rating }).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["game", id] }),
+  })
+
 
   useEffect(() => {
     const measure = () => {
@@ -132,6 +149,8 @@ export default function GameDetail() {
       </div>
     )
   }
+
+  const myReview = game.reviews?.find(r => r.userId === user?.id) ?? null
 
   const gameDate = game.date
     ? new Date(game.date).toLocaleDateString("en-US", {
@@ -225,11 +244,27 @@ export default function GameDetail() {
         {/* Rate panel */}
         <div className="bg-primary rounded-xl border border-line p-5 h-fit">
           <h2 className="text-center font-semibold text-white mb-4">Rate</h2>
-          <p className="text-center text-text-muted text-sm mb-4">
+
+          <div className="flex justify-center mb-4">
+            <BasketballRating
+              value={myReview?.rating ?? 0}
+              onChange={(r) => {
+                if (!isAuthed) return setAuthOpen(true)
+                quickRate.mutate(r)
+              }}
+              size={30}
+            />
+          </div>
+
+          <p className="text-center text-text-muted text-xs mb-4">
             {game._count?.reviews ?? 0} review{game._count?.reviews !== 1 ? "s" : ""}
           </p>
-          <button className="w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors">
-            Review / Log
+
+          <button
+            onClick={() => (isAuthed ? setReviewOpen(true) : setAuthOpen(true))}
+            className="w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors"
+          >
+            {myReview ? "Edit review" : "Review / Log"}
           </button>
         </div>
       </div>
@@ -283,6 +318,20 @@ export default function GameDetail() {
       )}
 
       {activeTab === "charts" && <ShotChart game={game} />}
+
+      <ReviewModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        game={game}
+        existing={myReview}
+      />
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        initialMode="login"
+      />
     </div>
+  
+    
   )
 }
