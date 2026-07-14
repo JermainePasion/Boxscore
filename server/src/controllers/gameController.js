@@ -393,3 +393,163 @@ export const getGameShots = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch shot chart" })
   }
 }
+
+// GET /api/games/recent — last 10 played NBA games
+// GET /api/games/recent — last 10 played NBA games, fully hydrated
+export const getRecentGames = async (req, res) => {
+  const key = "games:recent"
+  const listScript = path.resolve("python", "recentGames.py")
+  const fetchScript = path.resolve("python", "fetchSingleGame.py")
+
+  try {
+    const games = await cached(key, 30 * 60 * 1000, async () => {
+      const { stdout } = await execAsync(`python "${listScript}" 10`, { timeout: 120000 })
+      const raw = JSON.parse(stdout.trim())
+      if (raw.error) throw new Error(raw.error)
+
+      const ids = raw.map(r => r.gameId)
+
+      // What's already in the DB?
+      const existing = await prisma.game.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, date: true, _count: { select: { stats: true } } }
+      })
+      const complete = new Set(
+        existing.filter(g => g.date && g._count.stats > 0).map(g => g.id)
+      )
+
+      // Fetch missing games sequentially (rate-limit friendly)
+      for (const r of raw) {
+        if (complete.has(r.gameId)) continue
+        try {
+          const { stdout: gameOut } = await execAsync(
+            `python "${fetchScript}" ${r.gameId}`,
+            { timeout: 120000 }
+          )
+          const data = JSON.parse(gameOut.trim())
+          if (data.error || !data.homeTeam?.id) continue
+
+          const gameDate = data.date ? new Date(data.date) : null
+
+          await prisma.game.upsert({
+            where: { id: r.gameId },
+            update: {
+              date: gameDate ?? undefined,
+              season: "20" + r.gameId.slice(3, 5),
+              status: (data.stats?.length ?? 0) > 0 ? "final" : "no_data",
+            },
+            create: {
+              id: r.gameId,
+              date: gameDate,
+              season: "20" + r.gameId.slice(3, 5),
+              status: (data.stats?.length ?? 0) > 0 ? "final" : "no_data",
+              homeTeam: {
+                connectOrCreate: {
+                  where: { id: data.homeTeam.id },
+                  create: { id: data.homeTeam.id, name: data.homeTeam.name || "Unknown Team" }
+                }
+              },
+              awayTeam: {
+                connectOrCreate: {
+                  where: { id: data.awayTeam.id },
+                  create: { id: data.awayTeam.id, name: data.awayTeam.name || "Unknown Team" }
+                }
+              },
+              stats: {
+                create: (data.stats ?? []).map(s => ({
+                  player: {
+                    connectOrCreate: {
+                      where: { id: s.playerId },
+                      create: {
+                        id: s.playerId,
+                        name: s.name || "Unknown Player",
+                        headshotUrl: HEADSHOT_URL(s.playerId)
+                      }
+                    }
+                  },
+                  teamId: s.teamId,
+                  points: s.points ?? 0,
+                  rebounds: s.rebounds ?? 0,
+                  assists: s.assists ?? 0,
+                  steals: s.steals ?? 0,
+                  blocks: s.blocks ?? 0,
+                  minutes: s.minutes || null
+                }))
+              }
+            }
+          })
+        } catch (e) {
+          console.error(`recent: failed to hydrate ${r.gameId}:`, e.message)
+          // continue — a failed game just renders as stub
+        }
+      }
+
+      // Re-read everything with full card includes
+      const dbGames = await prisma.game.findMany({
+        where: { id: { in: ids } },
+        include: {
+          homeTeam: { select: { id: true, name: true, abbreviation: true } },
+          awayTeam: { select: { id: true, name: true, abbreviation: true } },
+          _count: { select: { reviews: true } },
+          stats: {
+            select: {
+              teamId: true, playerId: true,
+              points: true, rebounds: true, assists: true,
+              player: { select: { headshotUrl: true } }
+            }
+          }
+        }
+      })
+      const byId = new Map(dbGames.map(g => [g.id, buildCardData(g)]))
+
+      // Preserve API order; stub only for games that failed to hydrate
+      return raw.map(r => byId.get(r.gameId) ?? {
+        id: r.gameId,
+        date: r.date ? new Date(r.date).toISOString() : null,
+        title: r.matchup,
+        matchup: r.matchup,
+        stub: true,
+      })
+    })
+
+    return res.json(games)
+  } catch (err) {
+    console.error("getRecentGames error:", err)
+    return res.status(500).json({ error: "Failed to fetch recent games" })
+  }
+}
+
+// GET /api/games/random?count=10 — random sample from the DB
+export const getRandomGames = async (req, res) => {
+  const count = Math.min(20, Number(req.query.count) || 10)
+
+  try {
+    // Prisma has no native random; sample ids in JS
+    const ids = await prisma.game.findMany({
+      where: { status: "final" },
+      select: { id: true }
+    })
+    const shuffled = ids.sort(() => Math.random() - 0.5).slice(0, count)
+
+    const games = await prisma.game.findMany({
+      where: { id: { in: shuffled.map(g => g.id) } },
+      include: {
+        homeTeam: { select: { id: true, name: true, abbreviation: true } },
+        awayTeam: { select: { id: true, name: true, abbreviation: true } },
+        _count: { select: { reviews: true } },
+        stats: {
+          select: {
+            teamId: true, playerId: true,
+            points: true, rebounds: true, assists: true,
+            player: { select: { headshotUrl: true } }
+          }
+        }
+      }
+    })
+
+    return res.json(games.map(buildCardData))
+  } catch (err) {
+    console.error("getRandomGames error:", err)
+    return res.status(500).json({ error: "Failed to fetch random games" })
+  }
+}

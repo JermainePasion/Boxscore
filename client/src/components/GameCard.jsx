@@ -31,6 +31,29 @@ function LeaderRow({ label, away, home, awayTeamId, homeTeamId, season }) {
 }
 
 export default function GameCard({ game }) {
+
+  if (game.stub) {
+  return (
+    <Link
+      to={`/games/${game.id}`}
+      className="group block rounded-xl overflow-hidden border border-line bg-surface
+                 hover:border-gold transition-all hover:-translate-y-1"
+    >
+      <div className="aspect-[3/4] flex flex-col items-center justify-center gap-2 px-4 text-center">
+        <span className="text-sm font-semibold text-white">{game.title}</span>
+        <span className="text-xs text-text-muted">Tap to load game data</span>
+      </div>
+      <div className="p-3 border-t border-line">
+        <p className="text-xs text-text-muted">
+          {game.date && new Date(game.date).toLocaleDateString("en-US", {
+            day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+          })}
+        </p>
+      </div>
+    </Link>
+  )
+}
+
   const gameDate = game.date
     ? new Date(game.date).toLocaleDateString("en-US", {
         day: "numeric", month: "long", year: "numeric", timeZone: "UTC",

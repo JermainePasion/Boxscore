@@ -3,6 +3,7 @@ import DashboardLayout from "./layouts/DashboardLayout"
 import Home from "./screens/Home"
 import GameDetail from "./screens/GameDetail"
 import SearchPage from "./screens/SearchPage"
+import Games from "./screens/Games"
 
 function App() {
   return (
@@ -10,7 +11,7 @@ function App() {
       <Routes>
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<Home/>} />
-          <Route path="/games" element={<div>Games page</div>} />
+          <Route path="/games" element={<Games/>} />
           <Route path="/games/:id" element={<GameDetail />} />
           <Route path="/feed" element={<div>Feed page</div>} />
           <Route path="/pyramid" element={<div>Pyramid page</div>} />
