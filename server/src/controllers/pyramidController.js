@@ -144,17 +144,17 @@ export const savePyramid = async (req, res) => {
         create: { userId },
       })
 
-      // Wipe existing players
       await tx.goatPyramidPlayer.deleteMany({
         where: { pyramidId: existing.id }
       })
 
-      // Insert the new full set
       await tx.goatPyramidPlayer.createMany({
         data: players.map(p => ({
           pyramidId: existing.id,
           playerId: p.playerId,
-          tier: Number(p.tier)
+          tier: Number(p.tier),
+          headshotTeamId: p.headshotTeamId ?? null,
+          headshotSeason: p.headshotSeason ?? null,
         }))
       })
 

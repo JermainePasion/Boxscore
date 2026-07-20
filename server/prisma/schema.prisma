@@ -187,6 +187,8 @@ model GoatPyramidPlayer {
   pyramidId   String
   playerId    Int
   tier        Int
+  headshotTeamId Int?     // ← chosen era: team
+  headshotSeason String? @db.VarChar(10)   // ← chosen era: season ("2015")
 
   pyramid     GoatPyramid @relation(fields: [pyramidId], references: [id])
   player      Player      @relation(fields: [playerId], references: [id])

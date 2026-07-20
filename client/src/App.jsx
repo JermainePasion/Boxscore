@@ -4,6 +4,7 @@ import Home from "./screens/Home"
 import GameDetail from "./screens/GameDetail"
 import SearchPage from "./screens/SearchPage"
 import Games from "./screens/Games"
+import Pyramid from "./screens/Pyramid"
 
 function App() {
   return (
@@ -14,7 +15,7 @@ function App() {
           <Route path="/games" element={<Games/>} />
           <Route path="/games/:id" element={<GameDetail />} />
           <Route path="/feed" element={<div>Feed page</div>} />
-          <Route path="/pyramid" element={<div>Pyramid page</div>} />
+          <Route path="/pyramid" element={<Pyramid />} />
           <Route path="/search" element={<SearchPage />} />
         </Route>
         <Route path="/login" element={<div>Login page</div>} />
