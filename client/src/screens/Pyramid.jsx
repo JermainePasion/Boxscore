@@ -29,13 +29,13 @@ function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editin
       ref={ref}
       draggable={editing && !!player}
       onDragStart={e => {
+        if (!player) return
         e.dataTransfer.setData("playerId", String(player.id))
-        e.dataTransfer.setData("variantKey", variantKey(player))   // ← add
+        e.dataTransfer.setData("fromSlot", tierKey)
         if (ref.current) {
           const { width, height } = ref.current.getBoundingClientRect()
           e.dataTransfer.setDragImage(ref.current, width / 2, height / 2)
         }
-        onDragStart(player)
       }}
       onDragOver={e => { if (editing) { e.preventDefault(); setOver(true) } }}
       onDragLeave={() => setOver(false)}
@@ -45,7 +45,7 @@ function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editin
         if (!editing) return
         const id = Number(e.dataTransfer.getData("playerId"))
         const from = e.dataTransfer.getData("fromSlot") || null
-        const vKey = e.dataTransfer.getData("variantKey") || null   // ← add
+        const vKey = e.dataTransfer.getData("variantKey") || null
         if (id) onDrop(id, from, vKey)
       }}
       onClick={() => editing && onSlotClick()}
@@ -97,7 +97,7 @@ function PoolPlayer({ player, onDragStart, onClick, selected, used }) {
       draggable={!used}
       onDragStart={e => {
         e.dataTransfer.setData("playerId", String(player.id))
-        e.dataTransfer.setData("variantKey", variantKey(player))   // ← add
+        e.dataTransfer.setData("variantKey", variantKey(player))
         if (ref.current) {
           const { width, height } = ref.current.getBoundingClientRect()
           e.dataTransfer.setDragImage(ref.current, width / 2, height / 2)
@@ -139,6 +139,9 @@ export default function Pyramid() {
   const [saveMsg, setSaveMsg] = useState(null)
   const [editing, setEditing] = useState(false)
 
+  const [activeId, setActiveId] = useState(null)
+  const [title, setTitle] = useState("")
+
   // slots: { "1-0": { id, name, headshotTeamId, headshotSeason }, ... }
   const [slots, setSlots] = useState({})
 
@@ -148,18 +151,28 @@ export default function Pyramid() {
     staleTime: Infinity,
   })
 
-  const myPyramid = useQuery({
+  const myPyramids = useQuery({
     queryKey: ["pyramid", "me"],
     queryFn: () => api.get("/pyramid/me").then(r => r.data),
     enabled: isAuthed,
   })
 
-  // hydrate slots from the saved pyramid
+  const active = useMemo(
+    () => myPyramids.data?.find(p => p.id === activeId) ?? myPyramids.data?.[0] ?? null,
+    [myPyramids.data, activeId]
+  )
+
+  // keep activeId pointing at something real
   useEffect(() => {
-    if (!myPyramid.data?.players) return
+    if (!activeId && myPyramids.data?.length) setActiveId(myPyramids.data[0].id)
+  }, [myPyramids.data, activeId])
+
+  // hydrate slots + title whenever the active pyramid changes
+  useEffect(() => {
+    if (!active) { setSlots({}); setTitle(""); return }
     const next = {}
     const counters = {}
-    for (const entry of myPyramid.data.players) {
+    for (const entry of active.players) {
       const i = counters[entry.tier] ?? 0
       counters[entry.tier] = i + 1
       next[`${entry.tier}-${i}`] = {
@@ -170,12 +183,9 @@ export default function Pyramid() {
       }
     }
     setSlots(next)
-  }, [myPyramid.data])
-
-  // enter edit mode automatically if nothing is saved yet
-  useEffect(() => {
-    if (myPyramid.isFetched && !myPyramid.data) setEditing(true)
-  }, [myPyramid.isFetched, myPyramid.data])
+    setTitle(active.title)
+    setEditing(false)
+  }, [active?.id, active?.updatedAt])
 
   // debounced search → expand each matched player into its era headshot variants
   useEffect(() => {
@@ -208,7 +218,6 @@ export default function Pyramid() {
               })
             }
           } catch {
-            // variants unavailable — fall back to the current headshot only
             expanded.push({
               id: p.id,
               name: p.name,
@@ -241,11 +250,10 @@ export default function Pyramid() {
       const occupant = next[key]
 
       if (fromKey && fromKey !== key) {
-        // moving within the pyramid: swap or move
-        if (occupant) next[fromKey] = occupant
-        else delete next[fromKey]
+        if (occupant) next[fromKey] = occupant   // swap
+        else delete next[fromKey]                 // move
       } else if (!fromKey && usedIds.has(player.id) && next[key]?.id !== player.id) {
-        return s   // from the pool but this player is already ranked
+        return s   // already ranked elsewhere
       }
 
       next[key] = {
@@ -265,6 +273,17 @@ export default function Pyramid() {
     return next
   })
 
+  const createPyramid = useMutation({
+    mutationFn: () => api.post("/pyramid", { title: "New Pyramid" }).then(r => r.data),
+    onSuccess: (created) => {
+      qc.invalidateQueries({ queryKey: ["pyramid", "me"] })
+      setActiveId(created.id)
+      setSlots({})
+      setTitle(created.title)
+      setEditing(true)
+    },
+  })
+
   const save = useMutation({
     mutationFn: () => {
       const players = Object.entries(slots).map(([key, p]) => ({
@@ -273,7 +292,7 @@ export default function Pyramid() {
         headshotTeamId: p.headshotTeamId ?? null,
         headshotSeason: p.headshotSeason ?? null,
       }))
-      return api.put("/pyramid", { players }).then(r => r.data)
+      return api.put(`/pyramid/${active.id}`, { title, players }).then(r => r.data)
     },
     onSuccess: () => {
       setSaveMsg("Pyramid saved")
@@ -284,14 +303,64 @@ export default function Pyramid() {
     onError: e => setSaveMsg(e.response?.data?.error ?? "Save failed"),
   })
 
+  const removePyramid = useMutation({
+    mutationFn: () => api.delete(`/pyramid/${active.id}`),
+    onSuccess: () => {
+      setActiveId(null)
+      setSlots({})
+      qc.invalidateQueries({ queryKey: ["pyramid", "me"] })
+    },
+  })
+
   const pool = searchResults.length > 0 ? searchResults : (suggested.data ?? [])
   const filled = Object.keys(slots).length
 
   return (
     <div>
-      <h1 className="text-3xl md:text-4xl font-bold text-white text-center tracking-wide mb-2">
-        G.O.A.T. PYRAMID
-      </h1>
+      {/* pyramid selector */}
+      {isAuthed && (
+        <div className="flex items-center justify-center gap-2 flex-wrap mb-6">
+          {myPyramids.data?.map(p => (
+            <button
+              key={p.id}
+              onClick={() => setActiveId(p.id)}
+              className={`px-3 py-1.5 rounded-full text-xs transition-colors border ${
+                p.id === active?.id
+                  ? "border-gold text-gold"
+                  : "border-line text-text-muted hover:text-white"
+              }`}
+            >
+              {p.title}
+              <span className="ml-1.5 opacity-60">{p.players.length}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => createPyramid.mutate()}
+            disabled={createPyramid.isPending}
+            className="px-3 py-1.5 rounded-full text-xs border border-dashed border-line
+                       text-text-muted hover:text-gold hover:border-gold transition-colors"
+          >
+            + New pyramid
+          </button>
+        </div>
+      )}
+
+      {/* title */}
+      {editing ? (
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          maxLength={60}
+          placeholder="Pyramid title"
+          className="block mx-auto text-center text-3xl md:text-4xl font-bold text-white tracking-wide
+                     bg-transparent border-b border-line focus:border-gold outline-none mb-2 px-2"
+        />
+      ) : (
+        <h1 className="text-3xl md:text-4xl font-bold text-white text-center tracking-wide mb-2">
+          {active?.title ?? "G.O.A.T. PYRAMID"}
+        </h1>
+      )}
+
       <p className="text-center text-text-muted text-sm mb-8">
         {editing
           ? `${filled}/20 spots filled · drag a player in, or tap a player then tap a slot`
@@ -358,13 +427,14 @@ export default function Pyramid() {
           <>
             <button
               onClick={() => (isAuthed ? save.mutate() : setAuthOpen(true))}
-              disabled={save.isPending || filled === 0}
+              disabled={save.isPending || !active || filled === 0}
               className="px-6 py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm
                          hover:bg-gold transition-colors disabled:opacity-50"
             >
               {save.isPending ? "Saving…" : "Save pyramid"}
             </button>
-            {myPyramid.data && (
+
+            {active && (
               <button
                 onClick={() => {
                   setEditing(false)
@@ -375,20 +445,36 @@ export default function Pyramid() {
                 Cancel
               </button>
             )}
+
             <button
               onClick={() => setSlots({})}
               className="text-sm text-text-muted hover:text-accent-red transition-colors"
             >
               Clear all
             </button>
+
+            {active && myPyramids.data?.length > 1 && (
+              <button
+                onClick={() =>
+                  window.confirm(`Delete "${active.title}"?`) && removePyramid.mutate()
+                }
+                className="text-sm text-text-muted hover:text-accent-red transition-colors"
+              >
+                Delete pyramid
+              </button>
+            )}
           </>
         ) : (
           <button
-            onClick={() => (isAuthed ? setEditing(true) : setAuthOpen(true))}
+            onClick={() => {
+              if (!isAuthed) return setAuthOpen(true)
+              if (!active) return createPyramid.mutate()
+              setEditing(true)
+            }}
             className="px-6 py-2 rounded-md border border-line text-white font-semibold text-sm
                        hover:border-gold transition-colors"
           >
-            Edit pyramid
+            {active ? "Edit pyramid" : "Create your first pyramid"}
           </button>
         )}
         {saveMsg && <span className="text-sm text-gold">{saveMsg}</span>}

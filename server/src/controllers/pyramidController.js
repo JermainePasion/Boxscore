@@ -1,198 +1,189 @@
 import { prisma } from "../../lib/prisma.js"
-import { execSync } from "child_process"
+import { exec } from "child_process"
+import { promisify } from "util"
 import path from "path"
 
-const TIER_LIMITS = {
-  1: 2,
-  2: 3,
-  3: 4,
-  4: 5,
-  5: 6,
+const execAsync = promisify(exec)
+
+const TIER_LIMITS = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 }
+
+const PYRAMID_INCLUDE = {
+  players: {
+    include: { player: { select: { id: true, name: true, headshotUrl: true } } },
+    orderBy: [{ tier: "asc" }],
+  },
+  user: { select: { id: true, username: true } },
 }
 
-const VALID_TIERS = Object.keys(TIER_LIMITS).map(Number)
-
-// ── GET /api/pyramid/me — get the current user's pyramid ──────────────────
-export const getMyPyramid = async (req, res) => {
-  const userId = req.user?.userId
-  if (!userId) return res.status(401).json({ error: "Unauthorized" })
-
+// GET /api/pyramid/me — all of the signed-in user's pyramids
+export const getMyPyramids = async (req, res) => {
   try {
-    const pyramid = await prisma.goatPyramid.findUnique({
-      where: { userId },
-      include: {
-        players: {
-          include: { player: true },
-          orderBy: { tier: "asc" }
-        }
-      }
+    const pyramids = await prisma.goatPyramid.findMany({
+      where: { userId: req.user.userId },
+      include: PYRAMID_INCLUDE,
+      orderBy: { createdAt: "asc" },
     })
-
-    return res.json(pyramid ?? null)
+    return res.json(pyramids)
   } catch (err) {
-    console.error("getMyPyramid error:", err)
-    return res.status(500).json({ error: "Failed to fetch pyramid" })
+    console.error("getMyPyramids error:", err)
+    return res.status(500).json({ error: "Failed to fetch pyramids" })
   }
 }
 
-// ── GET /api/pyramid/:userId — get any user's pyramid ─────────────────────
-export const getPyramidByUser = async (req, res) => {
-  const { userId } = req.params
+// GET /api/pyramid/user/:userId — someone else's pyramids (public)
+export const getPyramidsByUser = async (req, res) => {
+  try {
+    const pyramids = await prisma.goatPyramid.findMany({
+      where: { userId: req.params.userId },
+      include: PYRAMID_INCLUDE,
+      orderBy: { createdAt: "asc" },
+    })
+    return res.json(pyramids)
+  } catch (err) {
+    console.error("getPyramidsByUser error:", err)
+    return res.status(500).json({ error: "Failed to fetch pyramids" })
+  }
+}
 
+// GET /api/pyramid/:id — a single pyramid (public)
+export const getPyramidById = async (req, res) => {
   try {
     const pyramid = await prisma.goatPyramid.findUnique({
-      where: { userId },
-      include: {
-        players: {
-          include: { player: true },
-          orderBy: { tier: "asc" }
-        },
-        user: { select: { id: true, username: true } }
-      }
+      where: { id: req.params.id },
+      include: PYRAMID_INCLUDE,
     })
-
     if (!pyramid) return res.status(404).json({ error: "Pyramid not found" })
-
     return res.json(pyramid)
   } catch (err) {
-    console.error("getPyramidByUser error:", err)
+    console.error("getPyramidById error:", err)
     return res.status(500).json({ error: "Failed to fetch pyramid" })
   }
 }
 
-// ── PUT /api/pyramid — save the full pyramid in one request ───────────────
-// Body: { players: [{ playerId, tier }, ...] }
-export const savePyramid = async (req, res) => {
-  const userId = req.user?.userId
-  if (!userId) return res.status(401).json({ error: "Unauthorized" })
+// POST /api/pyramid — create a new empty pyramid
+export const createPyramid = async (req, res) => {
+  const title = (req.body.title ?? "").trim() || "My GOAT Pyramid"
 
-  const { players } = req.body
+  try {
+    const count = await prisma.goatPyramid.count({ where: { userId: req.user.userId } })
+    if (count >= 20) {
+      return res.status(400).json({ error: "Pyramid limit reached (20)" })
+    }
+
+    const pyramid = await prisma.goatPyramid.create({
+      data: { userId: req.user.userId, title },
+      include: PYRAMID_INCLUDE,
+    })
+    return res.status(201).json(pyramid)
+  } catch (err) {
+    console.error("createPyramid error:", err)
+    return res.status(500).json({ error: "Failed to create pyramid" })
+  }
+}
+
+// PUT /api/pyramid/:id — replace title + players
+export const savePyramid = async (req, res) => {
+  const { id } = req.params
+  const { title, players = [] } = req.body
 
   if (!Array.isArray(players)) {
     return res.status(400).json({ error: "players must be an array" })
   }
 
-  // ── Validate all entries up front ────────────────────────────────────────
-
-  for (const entry of players) {
-    const tierNum = Number(entry.tier)
-    if (!VALID_TIERS.includes(tierNum)) {
-      return res.status(400).json({
-        error: `Invalid tier ${entry.tier} — must be between 1 and 5`
-      })
+  // validate tiers + duplicates
+  const counts = {}
+  const seen = new Set()
+  for (const p of players) {
+    const tier = Number(p.tier)
+    if (!TIER_LIMITS[tier]) {
+      return res.status(400).json({ error: `Invalid tier: ${p.tier}` })
     }
-    if (!entry.playerId) {
-      return res.status(400).json({ error: "Each entry must have a playerId" })
+    counts[tier] = (counts[tier] ?? 0) + 1
+    if (counts[tier] > TIER_LIMITS[tier]) {
+      return res.status(400).json({ error: `Tier ${tier} allows only ${TIER_LIMITS[tier]} players` })
     }
-  }
-
-  // Check for duplicate players
-  const playerIds = players.map(p => p.playerId)
-  if (new Set(playerIds).size !== playerIds.length) {
-    return res.status(400).json({ error: "Duplicate players are not allowed" })
-  }
-
-  // Check tier limits
-  for (const tier of VALID_TIERS) {
-    const count = players.filter(p => Number(p.tier) === tier).length
-    if (count > TIER_LIMITS[tier]) {
-      return res.status(400).json({
-        error: `Tier ${tier} has too many players (max ${TIER_LIMITS[tier]}, got ${count})`
-      })
+    if (seen.has(p.playerId)) {
+      return res.status(400).json({ error: "A player can only appear once" })
     }
-  }
-
-  // Check which players are already in DB
-  const existingPlayers = await prisma.player.findMany({
-    where: { id: { in: playerIds } },
-    select: { id: true }
-  })
-  const foundIds = new Set(existingPlayers.map(p => p.id))
-
-  // Auto-upsert any missing players via nba_api
-  const missing = playerIds.filter(id => !foundIds.has(id))
-  if (missing.length > 0) {
-    const scriptPath = path.resolve("python", "getPlayersByIds.py")
-    try {
-      const stdout = execSync(`python "${scriptPath}" ${missing.join(" ")}`).toString()
-      const fetchedPlayers = JSON.parse(stdout.trim())
-
-      await prisma.player.createMany({
-        data: fetchedPlayers.map(p => ({
-          id: p.id,
-          name: p.name,
-          headshotUrl: p.headshotUrl,
-          position: p.position ?? null,
-        })),
-        skipDuplicates: true
-      })
-    } catch (e) {
-      console.error("Auto-fetch players failed:", e)
-      return res.status(400).json({
-        error: `Players not found and could not be auto-fetched: ${missing.join(", ")}`
-      })
-    }
+    seen.add(p.playerId)
   }
 
   try {
-    // Upsert pyramid + replace all players in one transaction
-    const pyramid = await prisma.$transaction(async (tx) => {
-      // Get or create pyramid
-      const existing = await tx.goatPyramid.upsert({
-        where: { userId },
-        update: {},
-        create: { userId },
-      })
+    const existing = await prisma.goatPyramid.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: "Pyramid not found" })
+    if (existing.userId !== req.user.userId) {
+      return res.status(403).json({ error: "Not your pyramid" })
+    }
 
-      await tx.goatPyramidPlayer.deleteMany({
-        where: { pyramidId: existing.id }
+    // make sure every player exists in the DB
+    const ids = [...seen]
+    if (ids.length) {
+      const known = await prisma.player.findMany({
+        where: { id: { in: ids } },
+        select: { id: true },
       })
-
-      await tx.goatPyramidPlayer.createMany({
-        data: players.map(p => ({
-          pyramidId: existing.id,
-          playerId: p.playerId,
-          tier: Number(p.tier),
-          headshotTeamId: p.headshotTeamId ?? null,
-          headshotSeason: p.headshotSeason ?? null,
-        }))
-      })
-
-      // Return full pyramid
-      return tx.goatPyramid.findUnique({
-        where: { id: existing.id },
-        include: {
-          players: {
-            include: { player: true },
-            orderBy: { tier: "asc" }
-          }
+      const missing = ids.filter(pid => !known.some(k => k.id === pid))
+      if (missing.length) {
+        const scriptPath = path.resolve("python", "getPlayersByIds.py")
+        const { stdout } = await execAsync(`python "${scriptPath}" ${missing.join(" ")}`, { timeout: 60000 })
+        const fetched = JSON.parse(stdout.trim())
+        if (Array.isArray(fetched)) {
+          await Promise.all(fetched.map(f =>
+            prisma.player.upsert({
+              where: { id: f.id },
+              update: { name: f.name },
+              create: {
+                id: f.id,
+                name: f.name,
+                headshotUrl: `https://cdn.nba.com/headshots/nba/latest/1040x760/${f.id}.png`,
+              },
+            })
+          ))
         }
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.goatPyramidPlayer.deleteMany({ where: { pyramidId: id } })
+
+      if (players.length) {
+        await tx.goatPyramidPlayer.createMany({
+          data: players.map(p => ({
+            pyramidId: id,
+            playerId: p.playerId,
+            tier: Number(p.tier),
+            headshotTeamId: p.headshotTeamId ?? null,
+            headshotSeason: p.headshotSeason ?? null,
+          })),
+        })
+      }
+
+      return tx.goatPyramid.update({
+        where: { id },
+        data: { title: (title ?? "").trim() || existing.title },
+        include: PYRAMID_INCLUDE,
       })
     })
 
-    return res.json(pyramid)
+    return res.json(updated)
   } catch (err) {
     console.error("savePyramid error:", err)
     return res.status(500).json({ error: "Failed to save pyramid" })
   }
 }
 
-// ── DELETE /api/pyramid — delete the whole pyramid ────────────────────────
+// DELETE /api/pyramid/:id
 export const deletePyramid = async (req, res) => {
-  const userId = req.user?.userId
-  if (!userId) return res.status(401).json({ error: "Unauthorized" })
-
   try {
-    const pyramid = await prisma.goatPyramid.findUnique({ where: { userId } })
-    if (!pyramid) return res.status(404).json({ error: "Pyramid not found" })
+    const existing = await prisma.goatPyramid.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ error: "Pyramid not found" })
+    if (existing.userId !== req.user.userId) {
+      return res.status(403).json({ error: "Not your pyramid" })
+    }
 
-    await prisma.$transaction([
-      prisma.goatPyramidPlayer.deleteMany({ where: { pyramidId: pyramid.id } }),
-      prisma.comment.deleteMany({ where: { pyramidId: pyramid.id } }),
-      prisma.goatPyramid.delete({ where: { id: pyramid.id } })
-    ])
-
-    return res.json({ message: "Pyramid deleted" })
+    await prisma.goatPyramidPlayer.deleteMany({ where: { pyramidId: req.params.id } })
+    await prisma.goatPyramid.delete({ where: { id: req.params.id } })
+    return res.json({ ok: true })
   } catch (err) {
     console.error("deletePyramid error:", err)
     return res.status(500).json({ error: "Failed to delete pyramid" })

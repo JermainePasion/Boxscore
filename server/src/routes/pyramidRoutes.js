@@ -1,17 +1,21 @@
 import express from "express"
 import {
-  getMyPyramid,
-  getPyramidByUser,
+  getMyPyramids,
+  getPyramidsByUser,
+  getPyramidById,
+  createPyramid,
   savePyramid,
-  deletePyramid
+  deletePyramid,
 } from "../controllers/pyramidController.js"
 import { authenticate } from "../middleware/authenticate.js"
 
 const router = express.Router()
 
-router.get("/me", authenticate, getMyPyramid)
-router.get("/:userId", getPyramidByUser)
-router.put("/", authenticate, savePyramid)
-router.delete("/", authenticate, deletePyramid)
+router.get("/me", authenticate, getMyPyramids)
+router.get("/user/:userId", getPyramidsByUser)
+router.post("/", authenticate, createPyramid)
+router.put("/:id", authenticate, savePyramid)
+router.delete("/:id", authenticate, deletePyramid)
+router.get("/:id", getPyramidById) 
 
 export default router
