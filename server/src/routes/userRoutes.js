@@ -2,7 +2,8 @@ import express from "express"
 import {
   getUserProfile,
   updateMyProfile,
-  getUserReviews
+  getUserReviews,
+  setMyFavoriteGames
 } from "../controllers/userController.js"
 import {
   getFollowers,
@@ -14,6 +15,7 @@ import { optionalAuth } from "../middleware/optionalAuth.js" // see note below
 const router = express.Router()
 
 router.patch("/me", authenticate, updateMyProfile)
+router.put("/me/favorite-games", authenticate, setMyFavoriteGames)
 router.get("/:username", optionalAuth, getUserProfile)
 router.get("/:username/reviews", getUserReviews)
 router.get("/:username/followers", getFollowers)

@@ -5,6 +5,8 @@ import GameDetail from "./screens/GameDetail"
 import SearchPage from "./screens/SearchPage"
 import Games from "./screens/Games"
 import Pyramid from "./screens/Pyramid"
+import Profile from "./screens/Profile"
+import MyProfile from "./screens/MyProfile"
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
           <Route path="/feed" element={<div>Feed page</div>} />
           <Route path="/pyramid" element={<Pyramid />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/profile" element={<MyProfile />} />
+          <Route path="/user/:username" element={<Profile />} />
         </Route>
         <Route path="/login" element={<div>Login page</div>} />
         <Route path="/register" element={<div>Register page</div>} />

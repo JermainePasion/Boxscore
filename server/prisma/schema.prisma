@@ -13,6 +13,7 @@ model User {
   email           String   @unique @db.VarChar(100)
   passwordHash    String
   bio             String?
+  avatarUrl       String?
   favoriteTeamId  Int?
   createdAt       DateTime @default(now())
 
@@ -21,14 +22,15 @@ model User {
   reviews         GameReview[]
   reviewLikes     ReviewLike[]
   comments        Comment[]
-  pyramids  GoatPyramid[] 
+  pyramids        GoatPyramid[]
+  favoriteGames   FavoriteGame[]
 
-  following       Follow[] @relation("Follower") 
-  followers       Follow[] @relation("Following") 
+  following       Follow[] @relation("Follower")
+  followers       Follow[] @relation("Following")
 }
 
 model Team {
-  id            Int     @id   
+  id            Int     @id
   name          String  @db.VarChar(100)
   city          String? @db.VarChar(100)
   abbreviation  String? @db.VarChar(10)
@@ -46,21 +48,21 @@ model Player {
   headshotUrl String?
   position    String? @db.VarChar(20)
 
-  team        Team?  @relation(fields: [teamId], references: [id])
-  stats       GameStat[]
+  team           Team?  @relation(fields: [teamId], references: [id])
+  stats          GameStat[]
   pyramidEntries GoatPyramidPlayer[]
 
   @@index([teamId])
 }
 
 model Game {
-  id            String   @id  
+  id            String   @id
   date          DateTime?
   season        String?  @db.VarChar(20)
   status        String?  @db.VarChar(20)
 
   isSuggested   Boolean  @default(false)
-  title         String?             
+  title         String?
   description   String?
   youtubeId     String?
 
@@ -73,6 +75,7 @@ model Game {
   stats         GameStat[]
   reviews       GameReview[]
   comments      Comment[]
+  favoritedBy   FavoriteGame[]
 
   @@index([homeTeamId])
   @@index([awayTeamId])
@@ -90,12 +93,12 @@ model GameStat {
   rebounds  Int?
   steals    Int?
   blocks    Int?
-  minutes String?
+  minutes   String?
 
   game      Game    @relation(fields: [gameId], references: [id])
   player    Player  @relation(fields: [playerId], references: [id])
 
-  @@unique([gameId, playerId]) 
+  @@unique([gameId, playerId])
   @@index([playerId])
 }
 
@@ -122,8 +125,6 @@ model GameReview {
   @@index([gameId])
 }
 
-
-
 model ReviewLike {
   id         String   @id @default(uuid())
   userId     String
@@ -133,7 +134,7 @@ model ReviewLike {
   user       User       @relation(fields: [userId], references: [id])
   review     GameReview @relation(fields: [reviewId], references: [id])
 
-  @@unique([userId, reviewId]) 
+  @@unique([userId, reviewId])
   @@index([reviewId])
 }
 
@@ -148,10 +149,11 @@ model Comment {
   content     String
   createdAt   DateTime @default(now())
 
-  user        User        @relation(fields: [userId], references: [id])
-  game        Game?       @relation(fields: [gameId], references: [id])
-  review      GameReview? @relation(fields: [reviewId], references: [id])
-  pyramid     GoatPyramid?@relation(fields: [pyramidId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  game        Game?        @relation(fields: [gameId], references: [id])
+  review      GameReview?  @relation(fields: [reviewId], references: [id])
+  pyramid     GoatPyramid? @relation(fields: [pyramidId], references: [id])
+
   @@index([gameId])
   @@index([reviewId])
   @@index([pyramidId])
@@ -187,16 +189,29 @@ model GoatPyramid {
 }
 
 model GoatPyramidPlayer {
-  id          String  @id @default(uuid())
-  pyramidId   String
-  playerId    Int
-  tier        Int
-  headshotTeamId Int?     // ← chosen era: team
-  headshotSeason String? @db.VarChar(10)   // ← chosen era: season ("2015")
+  id             String  @id @default(uuid())
+  pyramidId      String
+  playerId       Int
+  tier           Int
+  headshotTeamId Int?               // chosen era: team
+  headshotSeason String? @db.VarChar(10)  // chosen era: season ("2015")
 
-  pyramid     GoatPyramid @relation(fields: [pyramidId], references: [id])
+  pyramid     GoatPyramid @relation(fields: [pyramidId], references: [id], onDelete: Cascade)
   player      Player      @relation(fields: [playerId], references: [id])
 
   @@index([pyramidId])
   @@index([playerId])
+}
+
+model FavoriteGame {
+  id       String @id @default(uuid())
+  userId   String
+  gameId   String
+  position Int    // 1–5
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id])
+
+  @@unique([userId, gameId])
+  @@index([userId])
 }
