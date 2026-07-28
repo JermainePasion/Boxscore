@@ -27,7 +27,7 @@ app.use("/api/players", playerRoutes)
 app.use("/api/pyramid", pyramidRoutes)
 
 app.use("/api/users", userRoutes)
-app.use("/api/follow", followRoutes)
+app.use("/api/users", followRoutes) 
 app.use("/api/feed", feedRoutes)
 
 app.use("/api/img", imgRoutes)
