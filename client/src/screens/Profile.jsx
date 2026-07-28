@@ -44,12 +44,13 @@ const toFive = (stored) => Math.max(0, Math.min(10, stored ?? 0)) / 2;
 
 function Crest({ team, size = "md" }) {
   const box = size === "sm" ? "h-6 w-6 text-[8px]" : "h-11 w-11 text-[11px]";
+  const tag = team?.abbreviation || team?.name?.slice(0, 3).toUpperCase() || "—";
   return (
     <span
       title={team?.name || ""}
       className={`${box} grid shrink-0 place-items-center overflow-hidden rounded-full bg-primary font-semibold tracking-wide text-white`}
     >
-      {team?.abbreviation || "—"}
+      {tag}
     </span>
   );
 }
@@ -115,7 +116,11 @@ function EmptyState({ children }) {
 /* ---------- cards ---------- */
 
 function GameCard({ game, rank, onRemove }) {
-  const label = gameLabel(game);
+  const teamTag = (team) => team?.abbreviation || team?.name || "?";
+
+  const gameLabel = (game) =>
+    game?.title ||
+    `${teamTag(game?.awayTeam)} @ ${teamTag(game?.homeTeam)}`;
   const thumb = youtubeThumb(game);
 
   return (
