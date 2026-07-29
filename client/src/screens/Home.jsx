@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { api } from "../lib/api"
 import GameCard from "../components/GameCard"
+import ActivityFeed from "../components/Feed/ActivityFeed"
 
 function GameRow({ title, games, isLoading }) {
   return (
@@ -54,6 +55,7 @@ export default function Home() {
         games={popular.data}
         isLoading={popular.isLoading}
       />
+      <ActivityFeed />
     </div>
   )
 }

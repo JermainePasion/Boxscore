@@ -1,17 +1,5 @@
 import { prisma } from "../../lib/prisma.js"
-/*
- * One-shot backfill for Team.abbreviation (and city, since it's a free win).
- *
- * NBA team IDs are stable constants — they don't change season to season —
- * so this map is safe to hard-code and safe to re-run. It updates existing
- * rows only; teams your app hasn't created yet get their abbreviation the
- * next time this runs (or you can leave it and re-run after new teams
- * appear). It never creates rows, so it won't manufacture teams that have
- * never been in a game.
- *
- * Run from the server directory:
- *   docker compose exec web node src/scripts/seedTeams.js
- */
+
 
 const TEAMS = [
   { id: 1610612737, abbreviation: "ATL", city: "Atlanta", name: "Hawks" },
