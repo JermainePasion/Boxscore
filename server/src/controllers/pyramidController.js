@@ -8,11 +8,17 @@ const execAsync = promisify(exec)
 const TIER_LIMITS = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 }
 
 const PYRAMID_INCLUDE = {
+  user: { select: { id: true, username: true, avatarUrl: true } },
   players: {
-    include: { player: { select: { id: true, name: true, headshotUrl: true } } },
-    orderBy: [{ tier: "asc" }],
+    orderBy: { tier: "asc" },
+    select: {
+      id: true,
+      tier: true,
+      headshotTeamId: true,
+      headshotSeason: true,
+      player: { select: { id: true, name: true, headshotUrl: true } },
+    },
   },
-  user: { select: { id: true, username: true } },
 }
 
 // GET /api/pyramid/me — all of the signed-in user's pyramids
@@ -45,6 +51,28 @@ export const getPyramidsByUser = async (req, res) => {
   }
 }
 
+export const getExplorePyramids = async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1)
+  const limit = Math.min(48, Number(req.query.limit) || 24)
+ 
+  try {
+    const pyramids = await prisma.goatPyramid.findMany({
+      // Only show pyramids that actually have players — an empty one is
+      // noise in a browse view.
+      where: { players: { some: {} } },
+      orderBy: { updatedAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: PYRAMID_INCLUDE,
+    })
+ 
+    return res.json({ page, limit, pyramids })
+  } catch (err) {
+    console.error("getExplorePyramids error:", err)
+    return res.status(500).json({ error: "Failed to fetch pyramids" })
+  }
+}
+
 // GET /api/pyramid/:id — a single pyramid (public)
 export const getPyramidById = async (req, res) => {
   try {
@@ -59,6 +87,7 @@ export const getPyramidById = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch pyramid" })
   }
 }
+
 
 // POST /api/pyramid — create a new empty pyramid
 export const createPyramid = async (req, res) => {

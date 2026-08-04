@@ -1,530 +1,333 @@
-import { useState, useEffect, useMemo, useRef } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useEffect, useMemo } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import AddRoundedIcon from "@mui/icons-material/AddRounded"
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
+import EditRoundedIcon from "@mui/icons-material/EditRounded"
+
 import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import PlayerHeadshot from "../components/PlayerHeadshot"
-import AuthModal from "../components/AuthModal"
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
-import PersonRoundedIcon from "@mui/icons-material/PersonRounded"
 
-const TIERS = [
-  { tier: 1, slots: 2 },
-  { tier: 2, slots: 3 },
-  { tier: 3, slots: 4 },
-  { tier: 4, slots: 5 },
-  { tier: 5, slots: 6 },
-]
+/* ------------------------------------------------------------------ *
+ *  Pyramid gallery — /pyramid                                         *
+ *  Browse your pyramids and everyone else's as cards; click for a     *
+ *  detail view. Editing lives in the editor at /pyramid/edit.         *
+ * ------------------------------------------------------------------ */
 
-// A pool/slot entry is uniquely identified by player + chosen era headshot
-const variantKey = (p) =>
-  `${p.id}-${p.headshotTeamId ?? "cur"}-${p.headshotSeason ?? "cur"}`
+const TIER_SIZES = [2, 3, 4, 5, 6]
 
-function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editing }) {
-  const [over, setOver] = useState(false)
-  const ref = useRef(null)
+const groupByTier = (players = []) =>
+  TIER_SIZES.map((_, i) => players.filter((p) => p.tier === i + 1))
 
-  return (
-    <div
-      ref={ref}
-      draggable={editing && !!player}
-      onDragStart={e => {
-        if (!player) return
-        e.dataTransfer.setData("playerId", String(player.id))
-        e.dataTransfer.setData("fromSlot", tierKey)
-        if (ref.current) {
-          const { width, height } = ref.current.getBoundingClientRect()
-          e.dataTransfer.setDragImage(ref.current, width / 2, height / 2)
-        }
-      }}
-      onDragOver={e => { if (editing) { e.preventDefault(); setOver(true) } }}
-      onDragLeave={() => setOver(false)}
-      onDrop={e => {
-        e.preventDefault()
-        setOver(false)
-        if (!editing) return
-        const id = Number(e.dataTransfer.getData("playerId"))
-        const from = e.dataTransfer.getData("fromSlot") || null
-        const vKey = e.dataTransfer.getData("variantKey") || null
-        if (id) onDrop(id, from, vKey)
-      }}
-      onClick={() => editing && onSlotClick()}
-      className={`relative w-14 h-18 md:w-16 md:h-20 rounded-md overflow-hidden border transition-all group
-        ${editing ? "cursor-pointer" : "cursor-default"}
-        ${over ? "border-gold scale-105 shadow-lg shadow-black/30"
-               : player ? "border-primary/40"
-               : "border-dashed border-primary/30"}
-        ${selected && !player ? "border-gold" : ""}
-        ${player ? "bg-primary" : "bg-white/50"}`}
-    >
-      {player ? (
-        <>
-          <PlayerHeadshot
-            playerId={player.id}
-            teamId={player.headshotTeamId}
-            season={player.headshotSeason}
-            className="w-full h-full"
-          />
-          <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] text-white text-center truncate px-0.5 py-0.5">
-            {player.name.split(" ").slice(-1)[0]}
-          </span>
-          {editing && (
-            <button
-              onClick={e => { e.stopPropagation(); onRemove() }}
-              className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity
-                         flex items-center justify-center text-white"
-              aria-label={`Remove ${player.name}`}
-            >
-              <CloseRoundedIcon sx={{ fontSize: 18 }} />
-            </button>
-          )}
-        </>
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <PersonRoundedIcon sx={{ fontSize: 30 }} className="text-primary/25" />
-        </div>
-      )}
-    </div>
-  )
-}
+const shortDate = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : ""
 
-function PoolPlayer({ player, onDragStart, onClick, selected, used }) {
-  const ref = useRef(null)
+const lastName = (name = "") => name.split(" ").slice(-1)[0]
+
+const eraLabel = (entry) => entry.headshotSeason || "Current"
+
+/* ---------- card ---------- */
+
+function PyramidCard({ pyramid, onOpen, showAuthor, isOwner }) {
+  const tiers = useMemo(() => groupByTier(pyramid.players), [pyramid.players])
+  const filled = (pyramid.players || []).length
 
   return (
     <button
-      ref={ref}
-      draggable={!used}
-      onDragStart={e => {
-        e.dataTransfer.setData("playerId", String(player.id))
-        e.dataTransfer.setData("variantKey", variantKey(player))
-        if (ref.current) {
-          const { width, height } = ref.current.getBoundingClientRect()
-          e.dataTransfer.setDragImage(ref.current, width / 2, height / 2)
-        }
-        onDragStart(player)
-      }}
-      onClick={() => !used && onClick(player)}
-      disabled={used}
-      title={player.variantLabel ? `${player.name} — ${player.variantLabel}` : player.name}
-      className={`relative shrink-0 w-12 h-16 rounded-md overflow-hidden border transition-all
-        ${used ? "opacity-25 cursor-not-allowed border-transparent"
-               : selected ? "border-gold brightness-110 cursor-grab"
-                          : "border-line hover:border-gold hover:brightness-110 cursor-grab"}`}
+      type="button"
+      onClick={onOpen}
+      className="group relative w-full rounded-md border border-line bg-surface p-3 text-left transition-all duration-200 hover:-translate-y-1 hover:border-primary-light hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
     >
-      <PlayerHeadshot
-        playerId={player.id}
-        teamId={player.headshotTeamId}
-        season={player.headshotSeason}
-        className="w-full h-full"
-      />
-      {player.variantLabel && (
-        <span className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] leading-tight text-white text-center truncate px-0.5">
-          {player.variantLabel}
+      {isOwner ? (
+        <span className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-primary-dark/80 text-text-muted opacity-0 transition-opacity group-hover:opacity-100">
+          <EditRoundedIcon sx={{ fontSize: 13 }} />
+        </span>
+      ) : null}
+
+      {/* top two tiers as a silhouette */}
+      <span className="mb-3 flex flex-col items-center gap-1 rounded bg-primary-dark/60 px-2 py-4">
+        {[0, 1].map((row) => (
+          <span key={row} className="flex gap-1">
+            {Array.from({ length: TIER_SIZES[row] }).map((_, slot) => {
+              const entry = tiers[row][slot]
+              return (
+                <span
+                  key={slot}
+                  className={`h-17 w-17 overflow-hidden rounded-full ${
+                entry ? "bg-primary" : "bg-line/50"
+                }`}
+                >
+                  {entry ? (
+                    <PlayerHeadshot
+                      playerId={entry.player.id}
+                      teamId={entry.headshotTeamId}
+                      season={entry.headshotSeason}
+                      className="h-full w-full"
+                    />
+                  ) : null}
+                </span>
+              )
+            })}
+          </span>
+        ))}
+      </span>
+
+      <span className="block truncate text-sm font-semibold text-white">{pyramid.title}</span>
+
+      {showAuthor ? (
+        <span className="mt-0.5 block truncate text-[11px] text-text-muted">
+          by {pyramid.user?.username} · {filled}/20
+        </span>
+      ) : (
+        <span className="mt-0.5 block text-[11px] text-text-muted">
+          {filled}/20 placed · {shortDate(pyramid.updatedAt)}
         </span>
       )}
     </button>
   )
 }
 
-export default function Pyramid() {
-  const { isAuthed } = useAuth()
-  const qc = useQueryClient()
-
-  const [authOpen, setAuthOpen] = useState(false)
-  const [selected, setSelected] = useState(null)   // tap-to-place fallback
-  const [query, setQuery] = useState("")
-  const [searchResults, setSearchResults] = useState([])
-  const [searching, setSearching] = useState(false)
-  const [saveMsg, setSaveMsg] = useState(null)
-  const [editing, setEditing] = useState(false)
-
-  const [activeId, setActiveId] = useState(null)
-  const [title, setTitle] = useState("")
-
-  // slots: { "1-0": { id, name, headshotTeamId, headshotSeason }, ... }
-  const [slots, setSlots] = useState({})
-
-  const suggested = useQuery({
-    queryKey: ["players", "suggested"],
-    queryFn: () => api.get("/players/suggested").then(r => r.data),
-    staleTime: Infinity,
-  })
-
-  const myPyramids = useQuery({
-    queryKey: ["pyramid", "me"],
-    queryFn: () => api.get("/pyramid/me").then(r => r.data),
-    enabled: isAuthed,
-  })
-
-  const active = useMemo(
-    () => myPyramids.data?.find(p => p.id === activeId) ?? myPyramids.data?.[0] ?? null,
-    [myPyramids.data, activeId]
+function CreateCard({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="grid min-h-[168px] w-full place-items-center gap-1 rounded-md border border-dashed border-line bg-surface/40 text-xs font-medium uppercase tracking-[0.12em] text-text-muted transition-colors hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+    >
+      <AddRoundedIcon sx={{ fontSize: 22 }} />
+      New pyramid
+    </button>
   )
+}
 
-  // keep activeId pointing at something real
+/* ---------- detail modal ---------- */
+
+function PyramidModal({ pyramid, isOwner, onClose, onEdit }) {
   useEffect(() => {
-    if (!activeId && myPyramids.data?.length) setActiveId(myPyramids.data[0].id)
-  }, [myPyramids.data, activeId])
+    if (!pyramid) return
+    const onKey = (e) => e.key === "Escape" && onClose()
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [pyramid, onClose])
 
-  // hydrate slots + title whenever the active pyramid changes
-  useEffect(() => {
-    if (!active) { setSlots({}); setTitle(""); return }
-    const next = {}
-    const counters = {}
-    for (const entry of active.players) {
-      const i = counters[entry.tier] ?? 0
-      counters[entry.tier] = i + 1
-      next[`${entry.tier}-${i}`] = {
-        id: entry.player.id,
-        name: entry.player.name,
-        headshotTeamId: entry.headshotTeamId ?? null,
-        headshotSeason: entry.headshotSeason ?? null,
-      }
-    }
-    setSlots(next)
-    setTitle(active.title)
-    setEditing(false)
-  }, [active?.id, active?.updatedAt])
+  if (!pyramid) return null
 
-  // debounced search → expand each matched player into its era headshot variants
-  useEffect(() => {
-    if (query.trim().length < 3) {
-      setSearchResults([])
-      setSearching(false)
-      return
-    }
-
-    let cancelled = false
-    const t = setTimeout(async () => {
-      setSearching(true)
-      try {
-        const { data: players } = await api.get("/players/search", { params: { q: query } })
-        const top = (players ?? []).slice(0, 5)   // cap — each costs a variants request
-
-        const expanded = []
-        for (const p of top) {
-          try {
-            const { data: variants } = await api.get(
-              `/players/${p.id}/headshots`, { timeout: 90000 }
-            )
-            for (const v of variants) {
-              expanded.push({
-                id: p.id,
-                name: p.name,
-                headshotTeamId: v.teamId,
-                headshotSeason: v.season,
-                variantLabel: v.season ? `${v.abbr} ${v.season}` : "Current",
-              })
-            }
-          } catch {
-            expanded.push({
-              id: p.id,
-              name: p.name,
-              headshotTeamId: null,
-              headshotSeason: null,
-              variantLabel: "Current",
-            })
-          }
-          if (cancelled) return
-          setSearchResults([...expanded])   // progressive fill
-        }
-      } catch {
-        if (!cancelled) setSearchResults([])
-      } finally {
-        if (!cancelled) setSearching(false)
-      }
-    }, 400)
-
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [query])
-
-  const usedIds = useMemo(
-    () => new Set(Object.values(slots).map(p => p.id)),
-    [slots]
-  )
-
-  const place = (key, player, fromKey = null) => {
-    setSlots(s => {
-      const next = { ...s }
-      const occupant = next[key]
-
-      if (fromKey && fromKey !== key) {
-        if (occupant) next[fromKey] = occupant   // swap
-        else delete next[fromKey]                 // move
-      } else if (!fromKey && usedIds.has(player.id) && next[key]?.id !== player.id) {
-        return s   // already ranked elsewhere
-      }
-
-      next[key] = {
-        id: player.id,
-        name: player.name,
-        headshotTeamId: player.headshotTeamId ?? null,
-        headshotSeason: player.headshotSeason ?? null,
-      }
-      return next
-    })
-    setSelected(null)
-  }
-
-  const remove = (key) => setSlots(s => {
-    const next = { ...s }
-    delete next[key]
-    return next
-  })
-
-  const createPyramid = useMutation({
-    mutationFn: () => api.post("/pyramid", { title: "New Pyramid" }).then(r => r.data),
-    onSuccess: (created) => {
-      qc.invalidateQueries({ queryKey: ["pyramid", "me"] })
-      setActiveId(created.id)
-      setSlots({})
-      setTitle(created.title)
-      setEditing(true)
-    },
-  })
-
-  const save = useMutation({
-    mutationFn: () => {
-      const players = Object.entries(slots).map(([key, p]) => ({
-        playerId: p.id,
-        tier: Number(key.split("-")[0]),
-        headshotTeamId: p.headshotTeamId ?? null,
-        headshotSeason: p.headshotSeason ?? null,
-      }))
-      return api.put(`/pyramid/${active.id}`, { title, players }).then(r => r.data)
-    },
-    onSuccess: () => {
-      setSaveMsg("Pyramid saved")
-      setTimeout(() => setSaveMsg(null), 2500)
-      setEditing(false)
-      qc.invalidateQueries({ queryKey: ["pyramid", "me"] })
-    },
-    onError: e => setSaveMsg(e.response?.data?.error ?? "Save failed"),
-  })
-
-  const removePyramid = useMutation({
-    mutationFn: () => api.delete(`/pyramid/${active.id}`),
-    onSuccess: () => {
-      setActiveId(null)
-      setSlots({})
-      qc.invalidateQueries({ queryKey: ["pyramid", "me"] })
-    },
-  })
-
-  const pool = searchResults.length > 0 ? searchResults : (suggested.data ?? [])
-  const filled = Object.keys(slots).length
+  const tiers = groupByTier(pyramid.players) // filled-only per tier
 
   return (
-    <div>
-      {/* pyramid selector */}
-      {isAuthed && (
-        <div className="flex items-center justify-center gap-2 flex-wrap mb-6">
-          {myPyramids.data?.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setActiveId(p.id)}
-              className={`px-3 py-1.5 rounded-full text-xs transition-colors border ${
-                p.id === active?.id
-                  ? "border-gold text-gold"
-                  : "border-line text-text-muted hover:text-white"
-              }`}
-            >
-              {p.title}
-              <span className="ml-1.5 opacity-60">{p.players.length}</span>
-            </button>
-          ))}
-          <button
-            onClick={() => createPyramid.mutate()}
-            disabled={createPyramid.isPending}
-            className="px-3 py-1.5 rounded-full text-xs border border-dashed border-line
-                       text-text-muted hover:text-gold hover:border-gold transition-colors"
-          >
-            + New pyramid
-          </button>
-        </div>
-      )}
-
-      {/* title */}
-      {editing ? (
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          maxLength={60}
-          placeholder="Pyramid title"
-          className="block mx-auto text-center text-3xl md:text-4xl font-bold text-white tracking-wide
-                     bg-transparent border-b border-line focus:border-gold outline-none mb-2 px-2"
-        />
-      ) : (
-        <h1 className="text-3xl md:text-4xl font-bold text-white text-center tracking-wide mb-2">
-          {active?.title ?? "G.O.A.T. PYRAMID"}
-        </h1>
-      )}
-
-      <p className="text-center text-text-muted text-sm mb-8">
-        {editing
-          ? `${filled}/20 spots filled · drag a player in, or tap a player then tap a slot`
-          : `${filled} player${filled !== 1 ? "s" : ""} ranked`}
-      </p>
-
-      {/* pyramid */}
-      <div className="relative max-w-3xl mx-auto mb-10 px-4">
-        <svg
-          className="absolute inset-0 -z-10 w-full h-full"
-          preserveAspectRatio="none"
-          viewBox="0 0 100 100"
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={pyramid.title}
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-primary-dark/85 p-4 backdrop-blur-sm sm:p-6"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl rounded-lg border border-line bg-surface p-5 sm:p-7"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 text-text-muted transition-colors hover:text-accent-red"
         >
-          <polygon
-            points="50,0 100,100 0,100"
-            fill="#e8eaed"
-            fillOpacity="0.92"
-            stroke="#c9ced6"
-            strokeWidth="0.3"
-          />
-        </svg>
+          <CloseRoundedIcon />
+        </button>
 
-        <div className="flex flex-col items-center gap-3 md:gap-4 py-6">
-          {TIERS.map(({ tier, slots: count }) => {
-            const keys = Array.from({ length: count }, (_, i) => `${tier}-${i}`)
-            const visible = editing ? keys : keys.filter(k => slots[k])
-            if (visible.length === 0) return null
+        <h3 className="pr-10 text-2xl font-semibold text-white">{pyramid.title}</h3>
+        <p className="mb-6 mt-1 text-xs text-text-muted">
+          {pyramid.user ? (
+            <>
+              by{" "}
+              <Link to={`/user/${pyramid.user.username}`} className="hover:text-gold">
+                {pyramid.user.username}
+              </Link>{" "}
+              ·{" "}
+            </>
+          ) : null}
+          updated {shortDate(pyramid.updatedAt)}
+        </p>
 
-            return (
-              <div key={tier} className="flex flex-col items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-primary/70 font-semibold">
-                  Tier {tier}
-                </span>
-                <div className="flex gap-2 md:gap-2.5">
-                  {visible.map(key => (
-                    <Slot
-                      key={key}
-                      tierKey={key}
-                      player={slots[key]}
-                      editing={editing}
-                      selected={!!selected}
-                      onDrop={(playerId, fromKey, vKey) => {
-                        const fromSlot = fromKey ? slots[fromKey] : null
-                        const p = fromSlot
-                          ?? (vKey && pool.find(x => variantKey(x) === vKey))
-                          ?? pool.find(x => x.id === playerId)
-                          ?? Object.values(slots).find(x => x.id === playerId)
-                        if (p) place(key, p, fromKey)
-                      }}
-                      onRemove={() => remove(key)}
-                      onSlotClick={() => { if (selected) place(key, selected) }}
-                    />
+        <div className="flex flex-col items-center gap-5">
+          {tiers.map((tier, i) =>
+            tier.length === 0 ? null : (
+              <div key={i} className="w-full">
+                <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                  Tier {i + 1}
+                </div>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {tier.map((entry) => (
+                    <div key={entry.id} className="w-[76px] text-center">
+                      <div className="mx-auto mb-1.5 h-14 w-14 overflow-hidden rounded-full bg-primary">
+                        <PlayerHeadshot
+                          playerId={entry.player.id}
+                          teamId={entry.headshotTeamId}
+                          season={entry.headshotSeason}
+                          className="h-full w-full"
+                        />
+                      </div>
+                      <div className="text-[11px] font-medium leading-tight text-white">
+                        {lastName(entry.player.name)}
+                      </div>
+                      <div className="text-[10px] text-text-muted">{eraLabel(entry)}</div>
+                    </div>
                   ))}
                 </div>
               </div>
             )
-          })}
-        </div>
-      </div>
-
-      {/* action bar */}
-      <div className="flex items-center justify-center gap-4 mb-8">
-        {editing ? (
-          <>
-            <button
-              onClick={() => (isAuthed ? save.mutate() : setAuthOpen(true))}
-              disabled={save.isPending || !active || filled === 0}
-              className="px-6 py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm
-                         hover:bg-gold transition-colors disabled:opacity-50"
-            >
-              {save.isPending ? "Saving…" : "Save pyramid"}
-            </button>
-
-            {active && (
-              <button
-                onClick={() => {
-                  setEditing(false)
-                  qc.invalidateQueries({ queryKey: ["pyramid", "me"] })
-                }}
-                className="text-sm text-text-muted hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-            )}
-
-            <button
-              onClick={() => setSlots({})}
-              className="text-sm text-text-muted hover:text-accent-red transition-colors"
-            >
-              Clear all
-            </button>
-
-            {active && myPyramids.data?.length > 1 && (
-              <button
-                onClick={() =>
-                  window.confirm(`Delete "${active.title}"?`) && removePyramid.mutate()
-                }
-                className="text-sm text-text-muted hover:text-accent-red transition-colors"
-              >
-                Delete pyramid
-              </button>
-            )}
-          </>
-        ) : (
-          <button
-            onClick={() => {
-              if (!isAuthed) return setAuthOpen(true)
-              if (!active) return createPyramid.mutate()
-              setEditing(true)
-            }}
-            className="px-6 py-2 rounded-md border border-line text-white font-semibold text-sm
-                       hover:border-gold transition-colors"
-          >
-            {active ? "Edit pyramid" : "Create your first pyramid"}
-          </button>
-        )}
-        {saveMsg && <span className="text-sm text-gold">{saveMsg}</span>}
-      </div>
-
-      {/* player pool — only while editing */}
-      {editing && (
-        <div className="border border-line rounded-xl bg-surface p-4">
-          <div className="flex items-center gap-2 bg-primary-dark border border-line rounded-md px-3 py-2 mb-4">
-            <SearchRoundedIcon sx={{ fontSize: 18 }} className="text-text-muted" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search players…"
-              className="bg-transparent outline-none text-sm text-white placeholder:text-text-muted w-full"
-            />
-            {query && (
-              <button onClick={() => setQuery("")} className="text-text-muted hover:text-white">
-                <CloseRoundedIcon sx={{ fontSize: 16 }} />
-              </button>
-            )}
-          </div>
-
-          <p className="text-xs text-text-muted mb-3">
-            {searchResults.length > 0
-              ? "Search results — each card is a different era headshot"
-              : "Suggested players"}
-            {searching && <span className="ml-2 text-gold">loading eras…</span>}
-          </p>
-
-          {suggested.isLoading ? (
-            <p className="text-text-muted text-sm">Loading players…</p>
-          ) : (
-            <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto">
-              {pool.map(p => (
-                <PoolPlayer
-                  key={variantKey(p)}
-                  player={p}
-                  used={usedIds.has(p.id)}
-                  selected={selected && variantKey(selected) === variantKey(p)}
-                  onDragStart={setSelected}
-                  onClick={setSelected}
-                />
-              ))}
-            </div>
           )}
         </div>
+
+        {isOwner ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="mt-7 flex w-full items-center justify-center gap-2 rounded bg-accent-orange py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
+          >
+            <EditRoundedIcon sx={{ fontSize: 15 }} />
+            Edit this pyramid
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- section rule ---------- */
+
+function SectionRule({ label, action }) {
+  return (
+    <div className="mb-4 flex items-center gap-4">
+      <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
+        {label}
+      </h2>
+      <div className="h-px flex-1 bg-accent-red" />
+      {action}
+    </div>
+  )
+}
+
+function CardGridSkeleton({ count = 4 }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="h-[168px] animate-pulse rounded-md bg-surface" />
+      ))}
+    </div>
+  )
+}
+
+/* ---------- screen ---------- */
+
+export default function Pyramid() {
+  const { isAuthed, user } = useAuth()
+  const navigate = useNavigate()
+  const [active, setActive] = useState(null)
+
+  const mine = useQuery({
+    queryKey: ["pyramid", "me"],
+    queryFn: () => api.get("/pyramid/me").then((r) => r.data),
+    enabled: isAuthed,
+  })
+
+  const explore = useQuery({
+    queryKey: ["pyramid", "explore"],
+    queryFn: () => api.get("/pyramid/explore").then((r) => r.data),
+  })
+
+  const myPyramids = mine.data ?? []
+  const myIds = useMemo(() => new Set(myPyramids.map((p) => p.id)), [myPyramids])
+
+  // Explore excludes the viewer's own pyramids — those already have a section.
+  const otherPyramids = (explore.data?.pyramids ?? []).filter((p) => !myIds.has(p.id))
+
+  const goEditor = (id) => navigate(id ? `/pyramid/edit?id=${id}` : "/pyramid/edit")
+
+  const activeIsMine = active ? myIds.has(active.id) : false
+
+  return (
+    <div>
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold tracking-wide text-white md:text-4xl">
+          G.O.A.T. PYRAMIDS
+        </h1>
+        <p className="mt-2 text-sm text-text-muted">
+          Build your ranking, and see how everyone else stacks the greats.
+        </p>
+      </div>
+
+      {/* your pyramids */}
+      {isAuthed ? (
+        <section className="mb-12">
+          <SectionRule
+            label="Your pyramids"
+            action={
+              myPyramids.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => goEditor()}
+                  className="shrink-0 rounded border border-line px-3 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-text-muted transition-colors hover:border-gold hover:text-gold"
+                >
+                  + New
+                </button>
+              ) : null
+            }
+          />
+          {mine.isLoading ? (
+            <CardGridSkeleton />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+              {myPyramids.map((p) => (
+                <PyramidCard key={p.id} pyramid={p} isOwner onOpen={() => setActive(p)} />
+              ))}
+              <CreateCard onClick={() => goEditor()} />
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="mb-12">
+          <SectionRule label="Your pyramids" />
+          <div className="rounded-md border border-dashed border-line bg-surface/40 px-6 py-8 text-center text-sm text-text-muted">
+            <Link to="/login" className="font-semibold text-gold hover:underline">
+              Sign in
+            </Link>{" "}
+            to build and save your own pyramids.
+          </div>
+        </section>
       )}
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />
+      {/* explore */}
+      <section className="mb-10">
+        <SectionRule label="Explore" />
+        {explore.isLoading ? (
+          <CardGridSkeleton />
+        ) : otherPyramids.length === 0 ? (
+          <div className="rounded-md border border-dashed border-line bg-surface/40 px-6 py-8 text-center text-sm text-text-muted">
+            No one else has shared a pyramid yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+            {otherPyramids.map((p) => (
+              <PyramidCard key={p.id} pyramid={p} showAuthor onOpen={() => setActive(p)} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <PyramidModal
+        pyramid={active}
+        isOwner={activeIsMine}
+        onClose={() => setActive(null)}
+        onEdit={() => goEditor(active.id)}
+      />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import GameDetail from "./screens/GameDetail"
 import SearchPage from "./screens/SearchPage"
 import Games from "./screens/Games"
 import Pyramid from "./screens/Pyramid"
+import PyramidEditor from "./screens/PyramidEditor"
 import Profile from "./screens/Profile"
 import MyProfile from "./screens/MyProfile"
 
@@ -18,6 +19,7 @@ function App() {
           <Route path="/games/:id" element={<GameDetail />} />
           <Route path="/feed" element={<div>Feed page</div>} />
           <Route path="/pyramid" element={<Pyramid />} />
+          <Route path="/pyramid/edit" element={<PyramidEditor />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/profile" element={<MyProfile />} />
           <Route path="/user/:username" element={<Profile />} />
