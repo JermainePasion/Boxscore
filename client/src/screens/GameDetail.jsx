@@ -13,6 +13,8 @@ import BasketballRating from "../components/GameDetail/BasketballRating"
 import AuthModal from "../components/AuthModal"
 import ReviewModal from "../components/GameDetail/ReviewModal"
 import GameReviews from "../components/GameDetail/GameReviews"
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded"
+import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded"
 
 function BoxScoreTable({ teamName, teamId, stats, season }) {
 
@@ -87,7 +89,9 @@ export default function GameDetail() {
   const [authOpen, setAuthOpen] = useState(false)       
 
   const { isAuthed, user } = useAuth()                    
-  const qc = useQueryClient()      
+  const qc = useQueryClient()    
+  
+  const [showScore, setShowScore] = useState(false)
 
 
   const { data: game, isLoading, isError, failureCount, refetch } = useQuery({
@@ -175,6 +179,8 @@ export default function GameDetail() {
 
   const homeStats = game.stats?.filter(s => s.teamId === game.homeTeamId) ?? []
   const awayStats = game.stats?.filter(s => s.teamId === game.awayTeamId) ?? []
+  const awayScore = awayStats.reduce((sum, s) => sum + (s.points ?? 0), 0)
+  const homeScore = homeStats.reduce((sum, s) => sum + (s.points ?? 0), 0)
 
   return (
     <div>
@@ -211,6 +217,43 @@ export default function GameDetail() {
             {matchupName}
           </h1>
           {gameDate && <p className="text-gold text-sm mt-1">{gameDate}</p>}
+
+          {(awayStats.length > 0 || homeStats.length > 0) && (
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex items-center gap-4 rounded-lg border border-line bg-primary px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <TeamLogoImg teamId={game.awayTeamId} className="w-6 h-6 object-contain" />
+                  <span
+                    className={`text-xl font-bold tabular-nums text-white transition ${
+                      showScore ? "" : "blur-md select-none"
+                    }`}
+                  >
+                    {awayScore}
+                  </span>
+                </div>
+                <span className="text-text-muted text-sm">—</span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xl font-bold tabular-nums text-white transition ${
+                      showScore ? "" : "blur-md select-none"
+                    }`}
+                  >
+                    {homeScore}
+                  </span>
+                  <TeamLogoImg teamId={game.homeTeamId} className="w-6 h-6 object-contain" />
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowScore(v => !v)}
+                className="text-text-muted hover:text-white transition-colors"
+                aria-label={showScore ? "Hide final score" : "Show final score"}
+                title={showScore ? "Hide score" : "Show final score"}
+              >
+                {showScore ? <VisibilityOffRoundedIcon /> : <VisibilityRoundedIcon />}
+              </button>
+            </div>
+          )}
 
           {game.description && (
             <p className="text-text-muted leading-relaxed mt-4">{game.description}</p>
