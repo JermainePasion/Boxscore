@@ -7,13 +7,12 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 
 import { api } from "../lib/api";
-
+import TeamLogo from "../components/TeamLogo";
+import FavoriteGamePicker from "../components/Profile/Favoritegamepicker";
+import { NBA_TEAMS } from "../utils/nbaTeams";
 
 const TIER_SIZES = [2, 3, 4, 5, 6]; // pyramid rows, top to bottom
 const MAX_FAVORITES = 5;
-
-const youtubeThumb = (game) =>
-  game?.youtubeId ? `https://img.youtube.com/vi/${game.youtubeId}/hqdefault.jpg` : null;
 
 const shortDate = (iso) =>
   iso
@@ -24,8 +23,10 @@ const shortDate = (iso) =>
       })
     : "";
 
+const teamTag = (team) => team?.abbreviation || team?.name || "?";
+
 const gameLabel = (game) =>
-  game?.title || `${game?.awayTeam?.abbreviation ?? "?"} @ ${game?.homeTeam?.abbreviation ?? "?"}`;
+  game?.title || `${teamTag(game?.awayTeam)} @ ${teamTag(game?.homeTeam)}`;
 
 const initialsOf = (name = "") =>
   name
@@ -41,16 +42,24 @@ const groupByTier = (players = []) =>
 
 const toFive = (stored) => Math.max(0, Math.min(10, stored ?? 0)) / 2;
 
+/* ---------- primitives ---------- */
 
-function Crest({ team, size = "md" }) {
-  const box = size === "sm" ? "h-6 w-6 text-[8px]" : "h-11 w-11 text-[11px]";
-  const tag = team?.abbreviation || team?.name?.slice(0, 3).toUpperCase() || "—";
+/* A team's logo, or an abbreviation circle if the id is missing. */
+function TeamMark({ team, className = "h-12 w-12" }) {
+  if (team?.id) {
+    return (
+      <TeamLogo
+        teamId={team.id}
+        alt={team.abbreviation || team.name || ""}
+        className={`${className} object-contain`}
+      />
+    );
+  }
   return (
     <span
-      title={team?.name || ""}
-      className={`${box} grid shrink-0 place-items-center overflow-hidden rounded-full bg-primary font-semibold tracking-wide text-white`}
+      className={`${className} grid place-items-center rounded-full bg-primary text-[9px] font-semibold text-white`}
     >
-      {tag}
+      {team?.abbreviation || team?.name?.slice(0, 3).toUpperCase() || "—"}
     </span>
   );
 }
@@ -113,15 +122,80 @@ function EmptyState({ children }) {
   );
 }
 
+/* ---------- team picker (favorite team) ---------- */
+
+function TeamPicker({ currentId, onPick, onClose, saving }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose favorite team"
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-primary-dark/85 p-4 backdrop-blur-sm sm:p-6"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-xl rounded-lg border border-line bg-surface p-5 sm:p-7"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 text-text-muted transition-colors hover:text-accent-red"
+        >
+          <CloseIcon />
+        </button>
+
+        <h3 className="mb-5 pr-10 text-xl font-semibold text-white">Favorite team</h3>
+
+        <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto pr-2 -mr-2 sm:grid-cols-4">
+          {NBA_TEAMS.map((t) => {
+            const selected = t.id === currentId;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                disabled={saving}
+                onClick={() => onPick(t.id)}
+                title={t.name}
+                className={`flex flex-col items-center gap-1.5 rounded-md border p-2 transition-colors disabled:opacity-50 ${
+                  selected
+                    ? "border-gold bg-primary/40"
+                    : "border-line hover:border-primary-light hover:bg-surface-hover"
+                }`}
+              >
+                <TeamLogo teamId={t.id} alt={t.name} className="h-8 w-8 object-contain" />
+                <span className="text-[10px] font-semibold tracking-wide text-white">
+                  {t.abbreviation}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          disabled={saving || currentId == null}
+          onClick={() => onPick(null)}
+          className="mt-4 w-full rounded border border-line py-2 text-xs font-semibold uppercase tracking-[0.1em] text-text-muted transition-colors hover:border-accent-red hover:text-accent-red disabled:opacity-40"
+        >
+          No favorite team
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- cards ---------- */
 
 function GameCard({ game, rank, onRemove }) {
-  const teamTag = (team) => team?.abbreviation || team?.name || "?";
-
-  const gameLabel = (game) =>
-    game?.title ||
-    `${teamTag(game?.awayTeam)} @ ${teamTag(game?.homeTeam)}`;
-  const thumb = youtubeThumb(game);
+  const label = gameLabel(game);
 
   return (
     <div className="relative">
@@ -146,26 +220,19 @@ function GameCard({ game, rank, onRemove }) {
         to={`/games/${game.id}`}
         className="block aspect-[2/3] w-full overflow-hidden rounded-md bg-surface transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
       >
-        <span className="relative block h-full w-full">
-          {thumb ? (
-            <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover" />
-          ) : (
-            <span className="grid h-full w-full place-items-center bg-gradient-to-br from-primary-light via-primary to-primary-dark">
-              <Crest team={game.homeTeam} />
+        <span className="flex h-full w-full flex-col">
+          {/* matchup logos */}
+          <span className="flex flex-1 items-center justify-center gap-2 bg-primary p-3">
+            <TeamMark team={game.awayTeam} className="h-11 w-11 sm:h-12 sm:w-12" />
+            <span className="text-xs font-semibold text-text-muted">@</span>
+            <TeamMark team={game.homeTeam} className="h-11 w-11 sm:h-12 sm:w-12" />
+          </span>
+          {/* label + date */}
+          <span className="bg-primary-dark px-2 py-2 text-center">
+            <span className="block truncate text-[11px] font-medium uppercase tracking-wider text-white">
+              {label}
             </span>
-          )}
-
-          <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-primary-dark via-primary-dark/90 to-transparent px-2 pb-3 pt-8">
-            <Crest team={game.awayTeam} size="sm" />
-            <span className="min-w-0 text-center">
-              <span className="block truncate text-[11px] font-medium uppercase tracking-wider text-white">
-                {label}
-              </span>
-              <span className="mt-0.5 block text-[10px] text-text-muted">
-                {shortDate(game.date)}
-              </span>
-            </span>
-            <Crest team={game.homeTeam} size="sm" />
+            <span className="mt-0.5 block text-[10px] text-text-muted">{shortDate(game.date)}</span>
           </span>
         </span>
       </Link>
@@ -173,15 +240,16 @@ function GameCard({ game, rank, onRemove }) {
   );
 }
 
-function EmptySlot() {
+function EmptySlot({ onClick }) {
   return (
-    <Link
-      to="/games"
+    <button
+      type="button"
+      onClick={onClick}
       className="grid aspect-[2/3] w-full place-items-center gap-1 rounded-md border border-dashed border-line bg-surface/50 text-xs font-medium uppercase tracking-[0.12em] text-text-muted transition-colors hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
     >
       <AddIcon sx={{ fontSize: 18 }} />
       Add game
-    </Link>
+    </button>
   );
 }
 
@@ -234,24 +302,23 @@ function PyramidCard({ pyramid, onOpen }) {
 }
 
 function ReviewCard({ review }) {
-  const thumb = youtubeThumb(review.game);
+  const game = review.game;
 
   return (
     <Link
       to={`/games/${review.gameId}`}
       className="group grid w-full grid-cols-[56px_minmax(0,1fr)] items-start gap-4 border-b border-line py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:grid-cols-[72px_minmax(0,1fr)] sm:gap-5"
     >
-      <span className="block aspect-[2/3] overflow-hidden rounded bg-surface">
-        {thumb ? (
-          <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <span className="block h-full w-full bg-gradient-to-br from-primary-light to-primary-dark" />
-        )}
+      {/* matchup logos, stacked in the tall box */}
+      <span className="flex aspect-[2/3] flex-col items-center justify-center gap-1 rounded bg-gradient-to-br from-primary-light to-primary-dark p-1">
+        <TeamMark team={game?.awayTeam} className="h-7 w-7" />
+        <span className="text-[8px] font-semibold text-text-muted">@</span>
+        <TeamMark team={game?.homeTeam} className="h-7 w-7" />
       </span>
 
       <span className="min-w-0">
         <span className="block text-base font-semibold text-white transition-colors group-hover:text-gold">
-          {gameLabel(review.game)}
+          {gameLabel(game)}
         </span>
 
         <span className="mt-1.5 flex flex-wrap items-center gap-3">
@@ -443,6 +510,8 @@ export default function Profile() {
 
   const [editingFavorites, setEditingFavorites] = useState(false);
   const [editingBio, setEditingBio] = useState(false);
+  const [pickingTeam, setPickingTeam] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [activePyramid, setActivePyramid] = useState(null);
 
   const profileKey = ["profile", username];
@@ -473,11 +542,21 @@ export default function Profile() {
     },
   });
 
-  // The favorites endpoint replaces the whole ordered list, so removing one
-  // means sending the other four back.
+  const saveFavoriteTeam = useMutation({
+    mutationFn: (favoriteTeamId) => api.patch("/users/me", { favoriteTeamId }),
+    onSuccess: () => {
+      setPickingTeam(false);
+      invalidate();
+    },
+  });
+
+  // The favorites endpoint replaces the whole ordered list.
   const saveFavorites = useMutation({
     mutationFn: (gameIds) => api.put("/users/me/favorite-games", { gameIds }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      setPickerOpen(false);
+      invalidate();
+    },
   });
 
   if (isLoading) return <ProfileSkeleton />;
@@ -515,6 +594,10 @@ export default function Profile() {
 
   const removeFavorite = (gameId) =>
     saveFavorites.mutate(favorites.map((f) => f.game.id).filter((id) => id !== gameId));
+
+  // New game comes from smart-search, which keys it as `gameId`.
+  const addFavorite = (result) =>
+    saveFavorites.mutate([...favorites.map((f) => f.game.id), result.gameId]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
@@ -590,13 +673,34 @@ export default function Profile() {
             <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted">
               Favorite team
             </span>
+
             {profile.favoriteTeam ? (
-              <Crest team={profile.favoriteTeam} />
+              <span className="flex items-center gap-2">
+                <TeamLogo
+                  teamId={profile.favoriteTeam.id}
+                  alt={profile.favoriteTeam.name}
+                  className="h-9 w-9 object-contain"
+                />
+                <span className="hidden text-sm font-medium text-white sm:inline">
+                  {profile.favoriteTeam.name}
+                </span>
+              </span>
             ) : (
               <span className="text-[11px] uppercase tracking-[0.14em] text-text-muted">
                 Not set
               </span>
             )}
+
+            {isSelf ? (
+              <button
+                type="button"
+                onClick={() => setPickingTeam(true)}
+                aria-label="Change favorite team"
+                className="grid h-7 w-7 place-items-center rounded-full border border-line text-text-muted transition-colors hover:border-gold hover:text-gold"
+              >
+                <EditIcon sx={{ fontSize: 13 }} />
+              </button>
+            ) : null}
           </div>
 
           {editingBio ? (
@@ -648,7 +752,9 @@ export default function Profile() {
               />
             ))}
             {isSelf &&
-              Array.from({ length: emptySlots }).map((_, i) => <EmptySlot key={`slot-${i}`} />)}
+              Array.from({ length: emptySlots }).map((_, i) => (
+                <EmptySlot key={`slot-${i}`} onClick={() => setPickerOpen(true)} />
+              ))}
           </div>
         )}
       </section>
@@ -708,6 +814,23 @@ export default function Profile() {
       </section>
 
       <PyramidModal pyramid={activePyramid} onClose={() => setActivePyramid(null)} />
+
+      {pickingTeam ? (
+        <TeamPicker
+          currentId={profile.favoriteTeam?.id ?? null}
+          saving={saveFavoriteTeam.isPending}
+          onClose={() => setPickingTeam(false)}
+          onPick={(id) => saveFavoriteTeam.mutate(id)}
+        />
+      ) : null}
+
+      <FavoriteGamePicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={addFavorite}
+        existingIds={favorites.map((f) => f.game.id)}
+        saving={saveFavorites.isPending}
+      />
     </div>
   );
 }

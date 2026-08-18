@@ -1,0 +1,36 @@
+
+export const NBA_TEAMS = [
+  { id: 1610612737, abbreviation: "ATL", name: "Atlanta Hawks" },
+  { id: 1610612738, abbreviation: "BOS", name: "Boston Celtics" },
+  { id: 1610612751, abbreviation: "BKN", name: "Brooklyn Nets" },
+  { id: 1610612766, abbreviation: "CHA", name: "Charlotte Hornets" },
+  { id: 1610612741, abbreviation: "CHI", name: "Chicago Bulls" },
+  { id: 1610612739, abbreviation: "CLE", name: "Cleveland Cavaliers" },
+  { id: 1610612742, abbreviation: "DAL", name: "Dallas Mavericks" },
+  { id: 1610612743, abbreviation: "DEN", name: "Denver Nuggets" },
+  { id: 1610612765, abbreviation: "DET", name: "Detroit Pistons" },
+  { id: 1610612744, abbreviation: "GSW", name: "Golden State Warriors" },
+  { id: 1610612745, abbreviation: "HOU", name: "Houston Rockets" },
+  { id: 1610612754, abbreviation: "IND", name: "Indiana Pacers" },
+  { id: 1610612746, abbreviation: "LAC", name: "LA Clippers" },
+  { id: 1610612747, abbreviation: "LAL", name: "Los Angeles Lakers" },
+  { id: 1610612763, abbreviation: "MEM", name: "Memphis Grizzlies" },
+  { id: 1610612748, abbreviation: "MIA", name: "Miami Heat" },
+  { id: 1610612749, abbreviation: "MIL", name: "Milwaukee Bucks" },
+  { id: 1610612750, abbreviation: "MIN", name: "Minnesota Timberwolves" },
+  { id: 1610612740, abbreviation: "NOP", name: "New Orleans Pelicans" },
+  { id: 1610612752, abbreviation: "NYK", name: "New York Knicks" },
+  { id: 1610612760, abbreviation: "OKC", name: "Oklahoma City Thunder" },
+  { id: 1610612753, abbreviation: "ORL", name: "Orlando Magic" },
+  { id: 1610612755, abbreviation: "PHI", name: "Philadelphia 76ers" },
+  { id: 1610612756, abbreviation: "PHX", name: "Phoenix Suns" },
+  { id: 1610612757, abbreviation: "POR", name: "Portland Trail Blazers" },
+  { id: 1610612758, abbreviation: "SAC", name: "Sacramento Kings" },
+  { id: 1610612759, abbreviation: "SAS", name: "San Antonio Spurs" },
+  { id: 1610612761, abbreviation: "TOR", name: "Toronto Raptors" },
+  { id: 1610612762, abbreviation: "UTA", name: "Utah Jazz" },
+  { id: 1610612764, abbreviation: "WAS", name: "Washington Wizards" },
+];
+
+export const TEAM_BY_ID = Object.fromEntries(NBA_TEAMS.map((t) => [t.id, t]));
+export const TEAM_BY_ABBR = Object.fromEntries(NBA_TEAMS.map((t) => [t.abbreviation, t]));
