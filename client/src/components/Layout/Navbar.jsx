@@ -17,7 +17,6 @@ const navLinks = [
   { to: "/pyramid", label: "G.O.A.T Pyramid", icon: ChangeHistoryIcon },
   { to: "/profile", label: "Profile", icon: PersonRoundedIcon },
   { to: "/games", label: "Games", icon: SportsBasketballRoundedIcon },
-  { to: "/list", label: "List", icon: FormatListBulletedRoundedIcon },
 ]
 
 export default function Navbar() {
