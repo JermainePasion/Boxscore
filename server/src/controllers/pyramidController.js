@@ -121,7 +121,8 @@ export const savePyramid = async (req, res) => {
 
   // validate tiers + duplicates
   const counts = {}
-  const seen = new Set()
+  const seenEras = new Set()   // a player may repeat, but not with the same headshot
+  const playerIds = new Set()  // distinct players, used for the existence check below
   for (const p of players) {
     const tier = Number(p.tier)
     if (!TIER_LIMITS[tier]) {
@@ -131,10 +132,15 @@ export const savePyramid = async (req, res) => {
     if (counts[tier] > TIER_LIMITS[tier]) {
       return res.status(400).json({ error: `Tier ${tier} allows only ${TIER_LIMITS[tier]} players` })
     }
-    if (seen.has(p.playerId)) {
-      return res.status(400).json({ error: "A player can only appear once" })
+
+    // Same player is fine across different eras; the era is headshot team +
+    // season, so key the dupe check on all three. null/null == "Current".
+    const eraKey = `${p.playerId}|${p.headshotTeamId ?? ""}|${p.headshotSeason ?? ""}`
+    if (seenEras.has(eraKey)) {
+      return res.status(400).json({ error: "That player is already placed with the same headshot" })
     }
-    seen.add(p.playerId)
+    seenEras.add(eraKey)
+    playerIds.add(p.playerId)
   }
 
   try {
@@ -145,7 +151,7 @@ export const savePyramid = async (req, res) => {
     }
 
     // make sure every player exists in the DB
-    const ids = [...seen]
+    const ids = [...playerIds]
     if (ids.length) {
       const known = await prisma.player.findMany({
         where: { id: { in: ids } },

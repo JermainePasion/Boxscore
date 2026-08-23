@@ -49,7 +49,7 @@ function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editin
         if (id) onDrop(id, from, vKey)
       }}
       onClick={() => editing && onSlotClick()}
-      className={`relative w-14 h-18 md:w-16 md:h-20 rounded-md overflow-hidden border transition-all group
+          className={`relative w-16 h-20 md:w-20 md:h-24 rounded-md overflow-hidden border transition-all group
         ${editing ? "cursor-pointer" : "cursor-default"}
         ${over ? "border-gold scale-105 shadow-lg shadow-black/30"
                : player ? "border-primary/40"
@@ -107,7 +107,7 @@ function PoolPlayer({ player, onDragStart, onClick, selected, used }) {
       onClick={() => !used && onClick(player)}
       disabled={used}
       title={player.variantLabel ? `${player.name} — ${player.variantLabel}` : player.name}
-      className={`relative shrink-0 w-12 h-16 rounded-md overflow-hidden border transition-all
+            className={`relative shrink-0 w-16 h-20 rounded-md overflow-hidden border transition-all
         ${used ? "opacity-25 cursor-not-allowed border-transparent"
                : selected ? "border-gold brightness-110 cursor-grab"
                           : "border-line hover:border-gold hover:brightness-110 cursor-grab"}`}
@@ -239,8 +239,8 @@ export default function PyramidEditor() {
     return () => { cancelled = true; clearTimeout(t) }
   }, [query])
 
-  const usedIds = useMemo(
-    () => new Set(Object.values(slots).map(p => p.id)),
+  const usedVariants = useMemo(
+    () => new Set(Object.values(slots).map(variantKey)),
     [slots]
   )
 
@@ -252,8 +252,12 @@ export default function PyramidEditor() {
       if (fromKey && fromKey !== key) {
         if (occupant) next[fromKey] = occupant   // swap
         else delete next[fromKey]                 // move
-      } else if (!fromKey && usedIds.has(player.id) && next[key]?.id !== player.id) {
-        return s   // already ranked elsewhere
+      } else if (
+        !fromKey &&
+        usedVariants.has(variantKey(player)) &&
+        variantKey(next[key] ?? {}) !== variantKey(player)
+      ) {
+        return s   // this exact era is already ranked elsewhere
       }
 
       next[key] = {
@@ -314,6 +318,57 @@ export default function PyramidEditor() {
 
   const pool = searchResults.length > 0 ? searchResults : (suggested.data ?? [])
   const filled = Object.keys(slots).length
+
+   // Auto-scroll the page while dragging a player near the top/bottom edge,
+  // so you can drag from the pool up to an off-screen slot (and back).
+  useEffect(() => {
+    if (!editing) return
+
+    const EDGE = 90        // px zone at top/bottom where scrolling kicks in
+    const MAX_SPEED = 18   // px per frame at the very edge, ramps to 0
+
+    let raf = null
+    let pointerY = null
+    let dragging = false
+
+    const step = () => {
+      if (!dragging || pointerY == null) { raf = null; return }
+      const h = window.innerHeight
+      let dy = 0
+      if (pointerY < EDGE) {
+        dy = -MAX_SPEED * (1 - pointerY / EDGE)
+      } else if (pointerY > h - EDGE) {
+        dy = MAX_SPEED * (1 - (h - pointerY) / EDGE)
+      }
+      if (dy) window.scrollBy(0, dy)
+      raf = requestAnimationFrame(step)
+    }
+
+    const onDragOver = (e) => {
+      pointerY = e.clientY
+      if (!dragging) {
+        dragging = true
+        if (raf == null) raf = requestAnimationFrame(step)
+      }
+    }
+
+    const stop = () => {
+      dragging = false
+      pointerY = null
+      if (raf != null) { cancelAnimationFrame(raf); raf = null }
+    }
+
+    window.addEventListener("dragover", onDragOver)
+    window.addEventListener("drop", stop)
+    window.addEventListener("dragend", stop)
+
+    return () => {
+      window.removeEventListener("dragover", onDragOver)
+      window.removeEventListener("drop", stop)
+      window.removeEventListener("dragend", stop)
+      stop()
+    }
+  }, [editing])
 
   return (
     <div>
@@ -513,7 +568,7 @@ export default function PyramidEditor() {
                 <PoolPlayer
                   key={variantKey(p)}
                   player={p}
-                  used={usedIds.has(p.id)}
+                  used={usedVariants.has(variantKey(p))}
                   selected={selected && variantKey(selected) === variantKey(p)}
                   onDragStart={setSelected}
                   onClick={setSelected}

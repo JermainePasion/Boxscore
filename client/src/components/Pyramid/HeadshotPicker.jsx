@@ -31,26 +31,27 @@ export default function HeadshotPicker({ open, onClose, player, onPick }) {
           <p className="text-text-muted text-sm">Finding available headshots…</p>
         ) : (
           <div className="grid grid-cols-4 gap-3 max-h-72 overflow-y-auto">
-            {variants?.map(v => (
-              <button
-                key={`${v.teamId ?? "cur"}-${v.season ?? "cur"}`}
-                onClick={() => { onPick(v); onClose() }}
-                className="flex flex-col items-center gap-1 group"
-              >
-                <div className="w-16 h-20 rounded-md overflow-hidden border border-line
-                                group-hover:border-gold transition-colors">
-                  <PlayerHeadshot
-                    playerId={player.id}
-                    teamId={v.teamId}
-                    season={v.season}
-                    className="w-full h-full"
-                  />
-                </div>
-                <span className="text-[10px] text-text-muted">
-                  {v.season ? `${v.abbr} ${v.season}` : "Current"}
-                </span>
-              </button>
-            ))}
+            {variants?.map(v => {
+              const eraKey = `${v.teamId ?? ""}|${v.season ?? ""}`
+              const used = usedEras?.has(eraKey)
+              return (
+                <button
+                  key={eraKey}
+                  disabled={used}
+                  onClick={() => { if (!used) { onPick(v); onClose() } }}
+                  className={`flex flex-col items-center gap-1 group ${used ? "opacity-40 cursor-not-allowed" : ""}`}
+                  title={used ? "Already in this pyramid" : undefined}
+                >
+                  <div className="w-16 h-20 rounded-md overflow-hidden border border-line
+                                  group-hover:border-gold transition-colors">
+                    <PlayerHeadshot playerId={player.id} teamId={v.teamId} season={v.season} className="w-full h-full" />
+                  </div>
+                  <span className="text-[10px] text-text-muted">
+                    {v.season ? `${v.abbr} ${v.season}` : "Current"}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
 
