@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../lib/api"
@@ -15,10 +15,70 @@ import ReviewModal from "../components/GameDetail/ReviewModal"
 import GameReviews from "../components/GameDetail/GameReviews"
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded"
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded"
+import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded"
+import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded"
+
+const BOX_COLUMNS = [
+  { key: "player",   label: "Player", align: "left" },
+  { key: "minutes",  label: "MIN",    align: "center" },
+  { key: "points",   label: "PTS",    align: "center" },
+  { key: "rebounds", label: "REB",    align: "center" },
+  { key: "assists",  label: "AST",    align: "center" },
+  { key: "steals",   label: "STL",    align: "center" },
+  { key: "blocks",   label: "BLK",    align: "center" },
+]
+
+// Minutes can arrive as a number, a "MM:SS" string, or null (DNP → sinks to bottom).
+const toMinutes = (m) => {
+  if (m == null) return -1
+  if (typeof m === "number") return m
+  const str = String(m)
+  if (str.includes(":")) {
+    const [mm, ss] = str.split(":")
+    return Number(mm) + (Number(ss) || 0) / 60
+  }
+  const n = Number(str)
+  return Number.isNaN(n) ? -1 : n
+}
+
+const cellValue = (s, key) => {
+  if (key === "player") return s.player?.name ?? ""
+  if (key === "minutes") return toMinutes(s.minutes)
+  return s[key] ?? 0
+}
 
 function BoxScoreTable({ teamName, teamId, stats, season }) {
+  // Default: points, highest first; ties fall back to minutes played.
+  const [sort, setSort] = useState({ key: "points", dir: "desc" })
+  const [touched, setTouched] = useState(false)   // no column highlighted until first click
 
-  
+  const sorted = useMemo(() => {
+    const rows = [...stats]
+    const mult = sort.dir === "asc" ? 1 : -1
+    rows.sort((a, b) => {
+      const av = cellValue(a, sort.key)
+      const bv = cellValue(b, sort.key)
+      const cmp =
+        typeof av === "string" || typeof bv === "string"
+          ? String(av).localeCompare(String(bv))
+          : av - bv
+      if (cmp !== 0) return cmp * mult
+      // tiebreak — whoever played more minutes stays on top (the "can't sort on
+      // points anymore" fallback, applied to every column except MIN itself)
+      return sort.key === "minutes" ? 0 : toMinutes(b.minutes) - toMinutes(a.minutes)
+    })
+    return rows
+  }, [stats, sort])
+
+  const onSort = (key) => {
+    setTouched(true)
+    setSort(prev =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "desc" }
+    )
+  }
+
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-3">
@@ -30,37 +90,71 @@ function BoxScoreTable({ teamName, teamId, stats, season }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-primary text-text-muted text-xs uppercase tracking-wide">
-              <th className="text-left px-3 py-2 font-medium">Player</th>
-              <th className="px-3 py-2 font-medium">MIN</th>
-              <th className="px-3 py-2 font-medium">PTS</th>
-              <th className="px-3 py-2 font-medium">REB</th>
-              <th className="px-3 py-2 font-medium">AST</th>
-              <th className="px-3 py-2 font-medium">STL</th>
-              <th className="px-3 py-2 font-medium">BLK</th>
+              {BOX_COLUMNS.map(col => {
+                const active = touched && sort.key === col.key
+                return (
+                  <th
+                    key={col.key}
+                    className={`px-3 py-2 font-medium ${col.align === "left" ? "text-left" : "text-center"}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onSort(col.key)}
+                      className={`inline-flex items-center gap-0.5 uppercase tracking-wide transition-colors hover:text-white ${
+                        col.align === "left" ? "" : "justify-center w-full"
+                      } ${active ? "text-gold" : ""}`}
+                    >
+                      {col.label}
+                      {active &&
+                        (sort.dir === "asc" ? (
+                          <ArrowUpwardRoundedIcon sx={{ fontSize: 13 }} />
+                        ) : (
+                          <ArrowDownwardRoundedIcon sx={{ fontSize: 13 }} />
+                        ))}
+                    </button>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
-            {stats.map(s => (
+            {sorted.map(s => (
               <tr key={s.id} className="border-t border-line hover:bg-surface-hover transition-colors">
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <PlayerHeadshot
-                      playerId={s.player?.id}
-                      teamId={s.teamId}
-                      season={season}
-                      className="w-7 h-7 rounded-full bg-primary"
-                    />
-                    <span className="font-medium text-white whitespace-nowrap">
-                      {s.player?.name}
-                    </span>
-                  </div>
-                </td>
-                <td className="text-center px-3 py-2 text-text-muted">{s.minutes ?? "—"}</td>
-                <td className="text-center px-3 py-2 font-semibold text-gold">{s.points}</td>
-                <td className="text-center px-3 py-2">{s.rebounds}</td>
-                <td className="text-center px-3 py-2">{s.assists}</td>
-                <td className="text-center px-3 py-2">{s.steals}</td>
-                <td className="text-center px-3 py-2">{s.blocks}</td>
+                {BOX_COLUMNS.map(col => {
+                  const active = touched && sort.key === col.key
+                  const activeCls = active ? "bg-white/[0.05]" : ""
+
+                  if (col.key === "player") {
+                    return (
+                      <td key={col.key} className={`px-3 py-2 ${activeCls}`}>
+                        <div className="flex items-center gap-2">
+                          <PlayerHeadshot
+                            playerId={s.player?.id}
+                            teamId={s.teamId}
+                            season={season}
+                            className="w-7 h-7 rounded-full bg-primary"
+                          />
+                          <span className="font-medium text-white whitespace-nowrap">
+                            {s.player?.name}
+                          </span>
+                        </div>
+                      </td>
+                    )
+                  }
+
+                  return (
+                    <td
+                      key={col.key}
+                      className={`text-center px-3 py-2 ${
+                        active ? "font-semibold text-gold" : ""
+                      } ${col.key === "minutes" && !active ? "text-text-muted" : ""} ${
+                        active ? "bg-white/[0.05]" : ""
+                      }`}
+                    >
+                      {col.key === "minutes" ? (s.minutes ?? "—") : s[col.key]}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
