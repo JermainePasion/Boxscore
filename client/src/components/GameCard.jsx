@@ -36,8 +36,8 @@ export default function GameCard({ game }) {
   return (
     <Link
       to={`/games/${game.id}`}
-      className="group block rounded-xl overflow-hidden border border-line bg-surface
-                 hover:border-gold transition-all hover:-translate-y-1"
+      className="group/card block rounded-xl overflow-hidden border border-line bg-surface
+                 hover:border-gold transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-black/40"
     >
       <div className="aspect-[3/4] flex flex-col items-center justify-center gap-2 px-4 text-center">
         <span className="text-sm font-semibold text-white">{game.title}</span>
@@ -65,14 +65,14 @@ export default function GameCard({ game }) {
   return (
     <Link
       to={`/games/${game.id}`}
-      className="group block rounded-xl overflow-hidden border border-line bg-surface
+      className="group/card block rounded-xl overflow-hidden border border-line bg-surface
                  hover:border-gold transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-black/40"
     >
       <div className="relative aspect-[3/4] bg-surface">
 
         {/* ── Default face: logos + VS ── */}
         <div className="absolute inset-0 flex items-center justify-center gap-3 px-4
-                        transition-opacity duration-200 group-hover:opacity-0">
+                        transition-opacity duration-200 group-hover/card:opacity-0">
           <TeamLogoImg
             teamId={game.awayTeamId}
             alt={game.awayTeam?.name}
@@ -88,8 +88,8 @@ export default function GameCard({ game }) {
 
         {/* ── Hover face: leaders + total score ── */}
         {hasLeaders && (
-          <div className="absolute inset-0 flex flex-col justify-center gap-3 px-3
-                          opacity-0 group-hover:opacity-100 transition-opacity duration-200
+          <div className="absolute inset-0 flex flex-col justify-between gap-2 px-3 py-4
+                          opacity-0 group-hover/card:opacity-100 transition-opacity duration-200
                           bg-primary-dark/95">
             {/* mini team header */}
             <div className="flex items-center justify-between px-1">
@@ -106,15 +106,18 @@ export default function GameCard({ game }) {
               />
             </div>
 
-            <LeaderRow label="PTS" away={game.away.points} home={game.home.points}
-              awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
-            <LeaderRow label="REB" away={game.away.rebounds} home={game.home.rebounds}
-              awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
-            <LeaderRow label="AST" away={game.away.assists} home={game.home.assists}
-              awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
+            {/* leader rows — grouped so justify-between balances header / leaders / score */}
+            <div className="flex flex-col gap-2">
+              <LeaderRow label="PTS" away={game.away.points} home={game.home.points}
+                awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
+              <LeaderRow label="REB" away={game.away.rebounds} home={game.home.rebounds}
+                awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
+              <LeaderRow label="AST" away={game.away.assists} home={game.home.assists}
+                awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
+            </div>
 
             {/* total score */}
-            <div className="border-t border-line pt-3 mt-1 flex items-center justify-center gap-3">
+            <div className="border-t border-line pt-2 flex items-center justify-center gap-3">
               <span className={`text-xl font-bold ${game.away.total > game.home.total ? "text-gold" : "text-white"}`}>
                 {game.away.total}
               </span>
