@@ -42,6 +42,13 @@ const groupByTier = (players = []) =>
 
 const toFive = (stored) => Math.max(0, Math.min(10, stored ?? 0)) / 2;
 
+const centerInRow = (filled = [], size) => {
+  const row = Array(size).fill(null)
+  const offset = Math.floor((size - filled.length) / 2)
+  filled.forEach((entry, i) => { row[offset + i] = entry })
+  return row
+}
+
 /* ---------- primitives ---------- */
 
 /* A team's logo, or an abbreviation circle if the id is missing. */
@@ -265,11 +272,15 @@ function PyramidCard({ pyramid, onOpen }) {
     >
       {/* top two rows, as a silhouette of the real pyramid */}
       <span className="mb-3 flex flex-col items-center gap-1 rounded bg-primary-dark/60 px-2 py-4">
-        {[0, 1].map((row) => (
-          <span key={row} className="flex gap-1">
-            {Array.from({ length: TIER_SIZES[row] }).map((_, slot) => {
-              const entry = tiers[row][slot];
-              return (
+        {[0, 1].map((row) => {
+          const cells =
+            row === 0 && tiers[0].length === 1
+              ? tiers[0]
+              : centerInRow(tiers[row], TIER_SIZES[row])
+
+          return (
+            <span key={row} className="flex gap-1">
+              {cells.map((entry, slot) => (
                 <span
                   key={slot}
                   className={`grid h-7 w-7 place-items-center overflow-hidden rounded-full text-[9px] font-medium text-white ${
@@ -287,10 +298,10 @@ function PyramidCard({ pyramid, onOpen }) {
                     initialsOf(entry.player?.name)
                   ) : null}
                 </span>
-              );
-            })}
-          </span>
-        ))}
+              ))}
+            </span>
+          )
+        })}
       </span>
 
       <span className="block truncate text-sm font-semibold text-white">{pyramid.title}</span>
