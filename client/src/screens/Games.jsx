@@ -125,11 +125,14 @@ function CarouselRow({ title, games, isLoading, skeletons = 5 }) {
               if (d < -N / 2) d += N
 
               const ad = Math.abs(d)
-              if (ad > range) return null // off-screen (and where the wrap hides)
+              if (ad > range) return null
 
               const isCenter = d === 0
               const scale = 1 - Math.min(ad, MAX_RANGE) * 0.13
-              const opacity = isCenter ? 1 : Math.max(0.12, 0.55 - (ad - 1) * 0.18)
+              // outermost ring is rendered but fully transparent — cards fade out
+              // at the edges instead of popping in/out
+              const opacity =
+                ad === range ? 0 : isCenter ? 1 : Math.max(0.12, 0.55 - (ad - 1) * 0.18)
               const x = d * SPACING + dragX
 
               return (
