@@ -8,6 +8,7 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded"
 import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import PlayerHeadshot from "../components/PlayerHeadshot"
+import AuthModal from "../components/AuthModal"
 
 /* ------------------------------------------------------------------ *
  *  Pyramid gallery — /pyramid                                         *
@@ -231,6 +232,8 @@ export default function Pyramid() {
   const { isAuthed, user } = useAuth()
   const navigate = useNavigate()
   const [active, setActive] = useState(null)
+  const [authOpen, setAuthOpen] = useState(false)
+  
 
   const mine = useQuery({
     queryKey: ["pyramid", "me"],
@@ -296,9 +299,13 @@ export default function Pyramid() {
         <section className="mb-12">
           <SectionRule label="Your pyramids" />
           <div className="rounded-md border border-dashed border-line bg-surface/40 px-6 py-8 text-center text-sm text-text-muted">
-            <Link to="/login" className="font-semibold text-gold hover:underline">
+            <button
+              type="button"
+              onClick={() => setAuthOpen(true)}
+              className="font-semibold text-gold hover:underline"
+            >
               Sign in
-            </Link>{" "}
+            </button>{" "}
             to build and save your own pyramids.
           </div>
         </section>
@@ -327,6 +334,12 @@ export default function Pyramid() {
         isOwner={activeIsMine}
         onClose={() => setActive(null)}
         onEdit={() => goEditor(active.id)}
+      />
+
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        initialMode="login"
       />
     </div>
   )
