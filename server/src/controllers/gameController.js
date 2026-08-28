@@ -52,6 +52,26 @@ const buildCardData = (game) => {
   }
 }
 
+const withRatingDistribution = async (game) => {
+  const distribution = await prisma.gameReview.groupBy({
+    by: ["rating"],
+    where: { gameId: game.id },
+    _count: { rating: true },
+  })
+
+  game.ratingDistribution = distribution.map(d => ({
+    rating: d.rating,
+    count: d._count.rating,
+  }))
+
+  const total = distribution.reduce((s, d) => s + d._count.rating, 0)
+  game.averageRating = total
+    ? distribution.reduce((s, d) => s + d.rating * d._count.rating, 0) / total
+    : 0
+
+  return game
+}
+
 export const getGameById = async (req, res) => {
   const { id } = req.params
   const scriptPath = path.resolve("python", "fetchSingleGame.py")
@@ -68,7 +88,7 @@ export const getGameById = async (req, res) => {
       if (!existingGame.youtubeId) {
         existingGame.youtubeId = await findAndSaveHighlight(existingGame)
       }
-      return res.json(existingGame)
+      return res.json(await withRatingDistribution(existingGame))
     }
 
     exec(`python "${scriptPath}" ${id}`, async (err, stdout, stderr) => {
@@ -179,7 +199,7 @@ export const getGameById = async (req, res) => {
         game.youtubeId = await findAndSaveHighlight(game)
       }
 
-      return res.json(game)
+      return res.json(await withRatingDistribution(game))
     })
 
   } catch (error) {

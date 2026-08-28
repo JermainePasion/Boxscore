@@ -17,6 +17,7 @@ import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded"
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded"
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded"
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded"
+import RatingHistogram from "../components/GameDetail/Ratinghistogram"
 
 const BOX_COLUMNS = [
   { key: "player",   label: "Player", align: "left" },
@@ -384,30 +385,35 @@ export default function GameDetail() {
         </div>
 
         {/* Rate panel */}
-        <div className="bg-primary rounded-xl border border-line p-5 h-fit">
-          <h2 className="text-center font-semibold text-white mb-4">Rate</h2>
+                {/* Rate panel + distribution */}
+        <div className="flex flex-col gap-4">
+          <div className="bg-primary rounded-xl border border-line p-5 h-fit">
+            <h2 className="text-center font-semibold text-white mb-4">Rate</h2>
 
-          <div className="flex justify-center mb-4">
-            <BasketballRating
-              value={myReview?.rating ?? 0}
-              onChange={(r) => {
-                if (!isAuthed) return setAuthOpen(true)
-                quickRate.mutate(r)
-              }}
-              size={30}
-            />
+            <div className="flex justify-center mb-4">
+              <BasketballRating
+                value={myReview?.rating ?? 0}
+                onChange={(r) => {
+                  if (!isAuthed) return setAuthOpen(true)
+                  quickRate.mutate(r)
+                }}
+                size={30}
+              />
+            </div>
+
+            <p className="text-center text-text-muted text-xs mb-4">
+              {game._count?.reviews ?? 0} review{game._count?.reviews !== 1 ? "s" : ""}
+            </p>
+
+            <button
+              onClick={() => (isAuthed ? setReviewOpen(true) : setAuthOpen(true))}
+              className="w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors"
+            >
+              {myReview ? "Edit review" : "Review / Log"}
+            </button>
           </div>
 
-          <p className="text-center text-text-muted text-xs mb-4">
-            {game._count?.reviews ?? 0} review{game._count?.reviews !== 1 ? "s" : ""}
-          </p>
-
-          <button
-            onClick={() => (isAuthed ? setReviewOpen(true) : setAuthOpen(true))}
-            className="w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors"
-          >
-            {myReview ? "Edit review" : "Review / Log"}
-          </button>
+          <RatingHistogram distribution={game.ratingDistribution} average={game.averageRating} />
         </div>
       </div>
 
