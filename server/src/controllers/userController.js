@@ -219,3 +219,37 @@ export const getUserReviews = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch reviews" })
   }
 }
+
+// ── GET /api/users/:username/diary — watched-date log, game + rating only ──
+export const getUserDiary = async (req, res) => {
+  const { username } = req.params
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    })
+    if (!user) return res.status(404).json({ error: "User not found" })
+
+    // Only entries with a watched date belong in the diary — a rating logged
+    // without one is a review, not a dated diary entry.
+    const entries = await prisma.gameReview.findMany({
+      where: { userId: user.id, watchedAt: { not: null } },
+      orderBy: [{ watchedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        gameId: true,
+        rating: true,
+        watchedAt: true,
+        createdAt: true,
+        watchedBefore: true,
+        game: GAME_INCLUDE,
+      },
+    })
+
+    return res.json({ username, entries })
+  } catch (err) {
+    console.error("getUserDiary error:", err)
+    return res.status(500).json({ error: "Failed to fetch diary" })
+  }
+}

@@ -2,8 +2,9 @@ import express from "express"
 import {
   getUserProfile,
   updateMyProfile,
-  setMyFavoriteGames,
+  getUserDiary,
   getUserReviews,
+  setMyFavoriteGames,
 } from "../controllers/userController.js"
 import {
   getFollowers,
@@ -24,6 +25,8 @@ router.delete("/:username/follow", authenticate, unfollowUser)
 
 router.get("/:username", optionalAuth, getUserProfile)
 router.get("/:username/reviews", getUserReviews)
+router.get("/:username/reviews", getUserReviews)
+router.get("/:username/diary", getUserDiary)
 router.get("/:username/followers", getFollowers)
 router.get("/:username/following", getFollowing)
 

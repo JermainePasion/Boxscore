@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Link, NavLink } from "react-router-dom"
 import GameSearch from "../Search/GameSearch"
 import AuthModal from "../AuthModal"
@@ -8,16 +8,69 @@ import HomeRoundedIcon from "@mui/icons-material/HomeRounded"
 import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory'
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded"
 import SportsBasketballRoundedIcon from "@mui/icons-material/SportsBasketballRounded"
-import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded"
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded"
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded"
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
 
 const navLinks = [
   { to: "/", label: "Home", icon: HomeRoundedIcon },
   { to: "/pyramid", label: "G.O.A.T Pyramid", icon: ChangeHistoryIcon },
-  { to: "/profile", label: "Profile", icon: PersonRoundedIcon },
   { to: "/games", label: "Games", icon: SportsBasketballRoundedIcon },
 ]
+
+function NavUserMenu({ username }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => e.key === "Escape" && setOpen(false)
+    document.addEventListener("mousedown", onClick)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onClick)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  const itemClasses = ({ isActive }) =>
+    `block px-4 py-2 text-sm transition-colors ${
+      isActive ? "text-gold" : "text-white hover:text-gold hover:bg-surface-hover"
+    }`
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex flex-col items-center gap-1 px-4 py-2 rounded-md text-xs font-medium transition-colors ${
+          open ? "text-gold" : "text-white hover:text-gold"
+        }`}
+      >
+        <PersonRoundedIcon sx={{ fontSize: 22 }} />
+        <span className="relative flex items-center justify-center gap-0.5">
+          <span className="max-w-[90px] truncate">{username}</span>
+          <ExpandMoreRoundedIcon
+            sx={{ fontSize: 14 }}
+            className={`absolute -right-3 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute left-1/2 top-full z-50 mt-1 w-40 -translate-x-1/2 overflow-hidden rounded-md border border-line bg-primary py-1 shadow-lg shadow-black/30">
+          <NavLink to={`/user/${username}`} end onClick={() => setOpen(false)} className={itemClasses}>
+            Profile
+          </NavLink>
+          <NavLink to={`/user/${username}/diary`} onClick={() => setOpen(false)} className={itemClasses}>
+            Diary
+          </NavLink>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -54,6 +107,7 @@ export default function Navbar() {
                   <span>{label}</span>
                 </NavLink>
               ))}
+              {isAuthed ? <NavUserMenu username={user?.username} /> : null}
             </div>
 
             <div className="hidden md:block shrink-0 w-48">
@@ -139,6 +193,13 @@ export default function Navbar() {
                       className="px-3 py-2 text-sm text-white hover:text-gold"
                     >
                       Profile ({user?.username})
+                    </Link>
+                    <Link
+                      to={`/user/${user?.username}/diary`}
+                      onClick={() => setMobileOpen(false)}
+                      className="px-3 py-2 text-sm text-white hover:text-gold"
+                    >
+                      Diary
                     </Link>
                     <button
                       onClick={() => { logout(); setMobileOpen(false) }}
