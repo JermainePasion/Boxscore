@@ -24,6 +24,7 @@ model User {
   comments        Comment[]
   pyramids        GoatPyramid[]
   favoriteGames   FavoriteGame[]
+  watchlist       WatchlistItem[]
 
   following       Follow[] @relation("Follower")
   followers       Follow[] @relation("Following")
@@ -76,6 +77,7 @@ model Game {
   reviews       GameReview[]
   comments      Comment[]
   favoritedBy   FavoriteGame[]
+  watchlistedBy   WatchlistItem[]
 
   @@index([homeTeamId])
   @@index([awayTeamId])
@@ -213,5 +215,19 @@ model FavoriteGame {
   game Game @relation(fields: [gameId], references: [id])
 
   @@unique([userId, gameId])
+  @@index([userId])
+}
+
+
+model WatchlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  gameId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id])
+
+  @@unique([userId, gameId])  
   @@index([userId])
 }

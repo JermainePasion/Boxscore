@@ -14,6 +14,7 @@ import userRoutes from "./src/routes/userRoutes.js"
 import followRoutes from "./src/routes/followRoutes.js"
 import feedRoutes from "./src/routes/feedRoutes.js"
 import imgRoutes from "./src/routes/imgRoutes.js"
+import watchlistRoutes from "./src/routes/watchlistRoutes.js"
 
 const app = express()
 
@@ -25,12 +26,14 @@ app.use("/api/games", gameRoutes)
 app.use("/api/reviews", reviewRoutes)
 app.use("/api/players", playerRoutes)
 app.use("/api/pyramid", pyramidRoutes)
+app.use("/api/watchlist", watchlistRoutes)
 
 app.use("/api/users", userRoutes)
 app.use("/api/users", followRoutes) 
 app.use("/api/feed", feedRoutes)
 
 app.use("/api/img", imgRoutes)
+
 
 const PORT = process.env.PORT || 5000
 
