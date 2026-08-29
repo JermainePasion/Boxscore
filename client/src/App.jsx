@@ -9,6 +9,7 @@ import PyramidEditor from "./screens/PyramidEditor"
 import Profile from "./screens/Profile"
 import MyProfile from "./screens/MyProfile"
 import Diary from "./screens/Diary"
+import Watchlist from "./screens/Watchlist"
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/profile" element={<MyProfile />} />
           <Route path="/user/:username" element={<Profile />} />
           <Route path="/user/:username/diary" element={<Diary />} />
+          <Route path="/watchlist" element={<Watchlist />} />
         </Route>
         <Route path="/login" element={<div>Login page</div>} />
         <Route path="/register" element={<div>Register page</div>} />

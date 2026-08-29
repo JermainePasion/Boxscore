@@ -63,6 +63,9 @@ function NavUserMenu({ username }) {
           <NavLink to={`/user/${username}`} end onClick={() => setOpen(false)} className={itemClasses}>
             Profile
           </NavLink>
+          <NavLink to="/watchlist" onClick={() => setOpen(false)} className={itemClasses}>
+            Watchlist
+          </NavLink>
           <NavLink to={`/user/${username}/diary`} onClick={() => setOpen(false)} className={itemClasses}>
             Diary
           </NavLink>
@@ -193,6 +196,13 @@ export default function Navbar() {
                       className="px-3 py-2 text-sm text-white hover:text-gold"
                     >
                       Profile ({user?.username})
+                    </Link>
+                    <Link
+                      to="/watchlist"
+                      onClick={() => setMobileOpen(false)}
+                      className="px-3 py-2 text-sm text-white hover:text-gold"
+                    >
+                      Watchlist
                     </Link>
                     <Link
                       to={`/user/${user?.username}/diary`}

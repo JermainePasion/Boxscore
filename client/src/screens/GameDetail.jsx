@@ -8,16 +8,20 @@ import TeamLogoImg from "../components/TeamLogo"
 import PlayerHeadshot from "../components/PlayerHeadshot"
 import GameLeaders from "../components/GameDetail/GameLeaders"
 import ShotChart from "../components/GameDetail/ShotChart"
-import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
 import BasketballRating from "../components/GameDetail/BasketballRating"
 import AuthModal from "../components/AuthModal"
 import ReviewModal from "../components/GameDetail/ReviewModal"
 import GameReviews from "../components/GameDetail/GameReviews"
+import RatingHistogram from "../components/GameDetail/Ratinghistogram"
+
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded"
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded"
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded"
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded"
-import RatingHistogram from "../components/GameDetail/Ratinghistogram"
+import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded"
+import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded"
+import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
+
 
 const BOX_COLUMNS = [
   { key: "player",   label: "Player", align: "left" },
@@ -202,6 +206,24 @@ export default function GameDetail() {
     onSuccess: () => {                                        // ← replace the old one-liner
       qc.invalidateQueries({ queryKey: ["game", id] })
       qc.invalidateQueries({ queryKey: ["reviews", id] })
+    },
+  })
+
+  const watchStatus = useQuery({
+    queryKey: ["watchlist", "status", id],
+    queryFn: () => api.get(`/watchlist/${id}/status`).then(r => r.data),
+    enabled: isAuthed,
+  })
+  const onList = watchStatus.data?.watchlisted ?? false
+
+  const toggleWatch = useMutation({
+    mutationFn: () =>
+      onList
+        ? api.delete(`/watchlist/${id}`).then(r => r.data)
+        : api.post(`/watchlist/${id}`).then(r => r.data),
+    onSuccess: (data) => {
+      qc.setQueryData(["watchlist", "status", id], data)   // reflect immediately
+      qc.invalidateQueries({ queryKey: ["watchlist", "me"] }) // refresh the list page
     },
   })
 
@@ -411,6 +433,28 @@ export default function GameDetail() {
             >
               {myReview ? "Edit review" : "Review / Log"}
             </button>
+
+              <button
+                onClick={() => (isAuthed ? toggleWatch.mutate() : setAuthOpen(true))}
+                disabled={toggleWatch.isPending}
+                className={`mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-semibold transition-colors disabled:opacity-60 ${
+                  onList
+                    ? "bg-primary-dark text-gold border border-gold/60 hover:border-gold"
+                    : "border border-line text-white hover:border-gold hover:text-gold"
+                }`}
+              >
+                {onList ? (
+                  <>
+                    <BookmarkRoundedIcon sx={{ fontSize: 16 }} />
+                    On your watchlist
+                  </>
+                ) : (
+                  <>
+                    <BookmarkBorderRoundedIcon sx={{ fontSize: 16 }} />
+                    Add to watchlist
+                  </>
+                )}
+              </button>
           </div>
 
           <RatingHistogram distribution={game.ratingDistribution} average={game.averageRating} />
