@@ -15,6 +15,7 @@ import followRoutes from "./src/routes/followRoutes.js"
 import feedRoutes from "./src/routes/feedRoutes.js"
 import imgRoutes from "./src/routes/imgRoutes.js"
 import watchlistRoutes from "./src/routes/watchlistRoutes.js"
+import listRoutes from "./src/routes/listRoutes.js"
 
 const app = express()
 
@@ -27,6 +28,7 @@ app.use("/api/reviews", reviewRoutes)
 app.use("/api/players", playerRoutes)
 app.use("/api/pyramid", pyramidRoutes)
 app.use("/api/watchlist", watchlistRoutes)
+app.use("/api/lists", listRoutes)
 
 app.use("/api/users", userRoutes)
 app.use("/api/users", followRoutes) 

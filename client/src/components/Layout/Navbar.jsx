@@ -11,10 +11,13 @@ import SportsBasketballRoundedIcon from "@mui/icons-material/SportsBasketballRou
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded"
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded"
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
+import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded"
+
 
 const navLinks = [
   { to: "/", label: "Home", icon: HomeRoundedIcon },
   { to: "/pyramid", label: "G.O.A.T Pyramid", icon: ChangeHistoryIcon },
+  { to: "/lists", label: "Lists", icon: FormatListBulletedRoundedIcon },
   { to: "/games", label: "Games", icon: SportsBasketballRoundedIcon },
 ]
 
