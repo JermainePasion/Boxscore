@@ -66,13 +66,13 @@ export default function ListEditor() {
   const usedIds = useMemo(() => new Set(items.map((it) => it.game.id)), [items])
 
   // debounced game search
-  useEffect(() => {
+    useEffect(() => {
     if (query.trim().length < 3) { setResults([]); setSearching(false); return }
     let cancelled = false
     const t = setTimeout(async () => {
       setSearching(true)
       try {
-        const { data } = await api.get("/games/search", { params: { q: query } })
+                const { data } = await api.get("/games/smart-search", { params: { q: query } })
         if (!cancelled) setResults((data ?? []).slice(0, 8))
       } catch {
         if (!cancelled) setResults([])
@@ -83,12 +83,25 @@ export default function ListEditor() {
     return () => { cancelled = true; clearTimeout(t) }
   }, [query])
 
-  const addGame = (game) => {
-    if (usedIds.has(game.id)) return
-    // search may return a light shape; keep whatever teams it gave us
-    setItems((prev) => [...prev, { game }])
-    setQuery("")
-    setResults([])
+  const [adding, setAdding] = useState(null)  // gameId currently being fetched
+
+  const addGame = async (result) => {
+    const gameId = result.gameId ?? result.id
+    if (!gameId || usedIds.has(gameId) || adding) return
+    setAdding(gameId)
+    try {
+      // search is thin ({gameId, date, matchup}); fetch the full game for teams
+      const { data: game } = await api.get(`/games/${gameId}`, { timeout: 45000 })
+      setItems((prev) =>
+        prev.some((it) => it.game.id === game.id) ? prev : [...prev, { game }]
+      )
+      setQuery("")
+      setResults([])
+    } catch {
+      // leave the search open so the user can retry
+    } finally {
+      setAdding(null)
+    }
   }
   const removeGame = (gameId) => setItems((prev) => prev.filter((it) => it.game.id !== gameId))
 
@@ -212,27 +225,28 @@ export default function ListEditor() {
         {results.length > 0 ? (
           <div className="mt-3 flex flex-col divide-y divide-line">
             {results.map((g) => {
-              const added = usedIds.has(g.id)
+              const gid = g.gameId ?? g.id
+              const added = usedIds.has(gid)
+              const busy = adding === gid
               return (
                 <button
-                  key={g.id}
+                  key={gid}
                   type="button"
-                  disabled={added}
+                  disabled={added || busy}
                   onClick={() => addGame(g)}
                   className={`flex items-center gap-3 py-2 text-left transition-colors ${
                     added ? "opacity-40" : "hover:text-gold"
                   }`}
                 >
-                  <span className="flex items-center gap-1">
-                    <TeamMark team={g.awayTeam} className="h-6 w-6" />
-                    <span className="text-[9px] text-text-muted">@</span>
-                    <TeamMark team={g.homeTeam} className="h-6 w-6" />
-                  </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-white">{gameLabel(g)}</span>
+                    <span className="block truncate text-sm font-medium text-white">
+                      {g.matchup ?? "Game"}
+                    </span>
                     <span className="block text-[11px] text-text-muted">{shortDate(g.date)}</span>
                   </span>
-                  <span className="shrink-0 text-xs text-text-muted">{added ? "Added" : "+ Add"}</span>
+                  <span className="shrink-0 text-xs text-text-muted">
+                    {added ? "Added" : busy ? "Adding…" : "+ Add"}
+                  </span>
                 </button>
               )
             })}
@@ -247,7 +261,7 @@ export default function ListEditor() {
         </p>
       ) : (
         <ol className="flex flex-col divide-y divide-line rounded-lg border border-line">
-          {items.map((it, i) => (
+                    {items.map((it, i) => (
             <li
               key={it.game.id}
               draggable
