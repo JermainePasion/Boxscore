@@ -319,3 +319,49 @@ export const deleteComment = async (req, res) => {
     return res.status(500).json({ error: "Failed to delete comment" })
   }
 }
+
+
+export const getCommentsByPyramid = async (req, res) => {
+  const { pyramidId } = req.params
+
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { pyramidId, gameId: null, reviewId: null },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { id: true, username: true, avatarUrl: true } },
+        likes: { select: { userId: true } },
+      },
+    })
+    return res.json(comments)
+  } catch (err) {
+    console.error("getCommentsByPyramid error:", err)
+    return res.status(500).json({ error: "Failed to fetch comments" })
+  }
+}
+
+export const toggleCommentLike = async (req, res) => {
+  const userId = req.user?.userId
+  if (!userId) return res.status(401).json({ error: "Unauthorized" })
+
+  const { commentId } = req.params
+
+  try {
+    const existing = await prisma.commentLike.findUnique({
+      where: { userId_commentId: { userId, commentId } },
+    })
+
+    if (existing) {
+      await prisma.commentLike.delete({
+        where: { userId_commentId: { userId, commentId } },
+      })
+      return res.json({ liked: false })
+    }
+
+    await prisma.commentLike.create({ data: { userId, commentId } })
+    return res.json({ liked: true })
+  } catch (err) {
+    console.error("toggleCommentLike error:", err)
+    return res.status(500).json({ error: "Failed to toggle like" })
+  }
+}

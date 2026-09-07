@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import AddRoundedIcon from "@mui/icons-material/AddRounded"
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
 import EditRoundedIcon from "@mui/icons-material/EditRounded"
 
 import { api } from "../lib/api"
@@ -12,8 +11,7 @@ import AuthModal from "../components/AuthModal"
 
 /* ------------------------------------------------------------------ *
  *  Pyramid gallery — /pyramid                                         *
- *  Browse your pyramids and everyone else's as cards; click for a     *
- *  detail view. Editing lives in the editor at /pyramid/edit.         *
+ *  Browse pyramids as cards; click through to /pyramid/:id.          *
  * ------------------------------------------------------------------ */
 
 const TIER_SIZES = [2, 3, 4, 5, 6]
@@ -29,10 +27,6 @@ const shortDate = (iso) =>
         year: "numeric",
       })
     : ""
-
-const lastName = (name = "") => name.split(" ").slice(-1)[0]
-
-const eraLabel = (entry) => entry.headshotSeason || "Current"
 
 /* ---------- card ---------- */
 
@@ -62,8 +56,8 @@ function PyramidCard({ pyramid, onOpen, showAuthor, isOwner }) {
                 <span
                   key={slot}
                   className={`h-17 w-17 overflow-hidden rounded-full ${
-                entry ? "bg-primary" : "bg-line/50"
-                }`}
+                    entry ? "bg-primary" : "bg-line/50"
+                  }`}
                 >
                   {entry ? (
                     <PlayerHeadshot
@@ -80,7 +74,9 @@ function PyramidCard({ pyramid, onOpen, showAuthor, isOwner }) {
         ))}
       </span>
 
-      <span className="block truncate text-sm font-semibold text-white">{pyramid.title}</span>
+      <span className="block truncate text-sm font-semibold text-white">
+        {pyramid.title}
+      </span>
 
       {showAuthor ? (
         <span className="mt-0.5 block truncate text-[11px] text-text-muted">
@@ -105,100 +101,6 @@ function CreateCard({ onClick }) {
       <AddRoundedIcon sx={{ fontSize: 22 }} />
       New pyramid
     </button>
-  )
-}
-
-/* ---------- detail modal ---------- */
-
-function PyramidModal({ pyramid, isOwner, onClose, onEdit }) {
-  useEffect(() => {
-    if (!pyramid) return
-    const onKey = (e) => e.key === "Escape" && onClose()
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [pyramid, onClose])
-
-  if (!pyramid) return null
-
-  const tiers = groupByTier(pyramid.players) // filled-only per tier
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={pyramid.title}
-      onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-primary-dark/85 p-4 backdrop-blur-sm sm:p-6"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl rounded-lg border border-line bg-surface p-5 sm:p-7"
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-4 top-4 text-text-muted transition-colors hover:text-accent-red"
-        >
-          <CloseRoundedIcon />
-        </button>
-
-        <h3 className="pr-10 text-2xl font-semibold text-white">{pyramid.title}</h3>
-        <p className="mb-6 mt-1 text-xs text-text-muted">
-          {pyramid.user ? (
-            <>
-              by{" "}
-              <Link to={`/user/${pyramid.user.username}`} className="hover:text-gold">
-                {pyramid.user.username}
-              </Link>{" "}
-              ·{" "}
-            </>
-          ) : null}
-          updated {shortDate(pyramid.updatedAt)}
-        </p>
-
-        <div className="flex flex-col items-center gap-5">
-          {tiers.map((tier, i) =>
-            tier.length === 0 ? null : (
-              <div key={i} className="w-full">
-                <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
-                  Tier {i + 1}
-                </div>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {tier.map((entry) => (
-                    <div key={entry.id} className="w-[76px] text-center">
-                      <div className="mx-auto mb-1.5 h-14 w-14 overflow-hidden rounded-full bg-primary">
-                        <PlayerHeadshot
-                          playerId={entry.player.id}
-                          teamId={entry.headshotTeamId}
-                          season={entry.headshotSeason}
-                          className="h-full w-full"
-                        />
-                      </div>
-                      <div className="text-[11px] font-medium leading-tight text-white">
-                        {lastName(entry.player.name)}
-                      </div>
-                      <div className="text-[10px] text-text-muted">{eraLabel(entry)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          )}
-        </div>
-
-        {isOwner ? (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="mt-7 flex w-full items-center justify-center gap-2 rounded bg-accent-orange py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
-          >
-            <EditRoundedIcon sx={{ fontSize: 15 }} />
-            Edit this pyramid
-          </button>
-        ) : null}
-      </div>
-    </div>
   )
 }
 
@@ -229,11 +131,9 @@ function CardGridSkeleton({ count = 4 }) {
 /* ---------- screen ---------- */
 
 export default function Pyramid() {
-  const { isAuthed, user } = useAuth()
+  const { isAuthed } = useAuth()
   const navigate = useNavigate()
-  const [active, setActive] = useState(null)
   const [authOpen, setAuthOpen] = useState(false)
-  
 
   const mine = useQuery({
     queryKey: ["pyramid", "me"],
@@ -253,8 +153,7 @@ export default function Pyramid() {
   const otherPyramids = (explore.data?.pyramids ?? []).filter((p) => !myIds.has(p.id))
 
   const goEditor = (id) => navigate(id ? `/pyramid/edit?id=${id}` : "/pyramid/edit")
-
-  const activeIsMine = active ? myIds.has(active.id) : false
+  const goDetail = (id) => navigate(`/pyramid/${id}`)
 
   return (
     <div>
@@ -289,7 +188,12 @@ export default function Pyramid() {
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
               {myPyramids.map((p) => (
-                <PyramidCard key={p.id} pyramid={p} isOwner onOpen={() => setActive(p)} />
+                <PyramidCard
+                  key={p.id}
+                  pyramid={p}
+                  isOwner
+                  onOpen={() => goDetail(p.id)}
+                />
               ))}
               <CreateCard onClick={() => goEditor()} />
             </div>
@@ -323,24 +227,18 @@ export default function Pyramid() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
             {otherPyramids.map((p) => (
-              <PyramidCard key={p.id} pyramid={p} showAuthor onOpen={() => setActive(p)} />
+              <PyramidCard
+                key={p.id}
+                pyramid={p}
+                showAuthor
+                onOpen={() => goDetail(p.id)}
+              />
             ))}
           </div>
         )}
       </section>
 
-      <PyramidModal
-        pyramid={active}
-        isOwner={activeIsMine}
-        onClose={() => setActive(null)}
-        onEdit={() => goEditor(active.id)}
-      />
-
-      <AuthModal
-        open={authOpen}
-        onClose={() => setAuthOpen(false)}
-        initialMode="login"
-      />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />
     </div>
   )
 }
