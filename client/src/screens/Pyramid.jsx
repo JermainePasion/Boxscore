@@ -46,16 +46,17 @@ function PyramidCard({ pyramid, onOpen, showAuthor, isOwner }) {
         </span>
       ) : null}
 
-      {/* top two tiers as a silhouette */}
+      {/* top two tiers as a silhouette — circles scale to the card width so
+          they never overflow on narrow screens */}
       <span className="mb-3 flex flex-col items-center gap-1 rounded bg-primary-dark/60 px-2 py-4">
         {[0, 1].map((row) => (
-          <span key={row} className="flex gap-1">
+          <span key={row} className="flex w-full justify-center gap-1">
             {Array.from({ length: TIER_SIZES[row] }).map((_, slot) => {
               const entry = tiers[row][slot]
               return (
                 <span
                   key={slot}
-                  className={`h-17 w-17 overflow-hidden rounded-full ${
+                  className={`aspect-square w-1/6 max-w-[68px] overflow-hidden rounded-full ${
                     entry ? "bg-primary" : "bg-line/50"
                   }`}
                 >
