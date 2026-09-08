@@ -62,7 +62,7 @@ function NavUserMenu({ username }) {
       </button>
 
       {open && (
-        <div className="absolute left-1/2 top-full z-50 mt-1 w-40 -translate-x-1/2 overflow-hidden rounded-md border border-line bg-primary py-1 shadow-lg shadow-black/30">
+        <div className="absolute left-1/2 top-full z-300 mt-1 w-40 -translate-x-1/2 overflow-hidden rounded-md border border-line bg-primary py-1 shadow-lg shadow-black/30">
           <NavLink to={`/user/${username}`} end onClick={() => setOpen(false)} className={itemClasses}>
             Profile
           </NavLink>
@@ -97,7 +97,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-primary border-b border-line">
+      <header className="sticky top-0 z-300 bg-primary border-b border-line ">
         <nav className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center h-16 gap-4">
 
