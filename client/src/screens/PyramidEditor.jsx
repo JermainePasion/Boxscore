@@ -145,6 +145,9 @@ export default function PyramidEditor() {
   // slots: { "1-0": { id, name, headshotTeamId, headshotSeason }, ... }
   const [slots, setSlots] = useState({})
 
+  // suggested players, expanded into era-headshot variants (same shape as search)
+  const [suggestedVariants, setSuggestedVariants] = useState([])
+
   const suggested = useQuery({
     queryKey: ["players", "suggested"],
     queryFn: () => api.get("/players/suggested").then(r => r.data),
@@ -186,6 +189,46 @@ export default function PyramidEditor() {
     setTitle(active.title)
     setEditing(false)
   }, [active?.id, active?.updatedAt])
+
+  // Expand suggested players into era-headshot variants, same as search results,
+  // so placing a suggested player carries the season its headshot is from.
+  useEffect(() => {
+    const players = suggested.data
+    if (!players?.length) { setSuggestedVariants([]); return }
+
+    let cancelled = false
+    ;(async () => {
+      const expanded = []
+      for (const p of players) {
+        try {
+          const { data: variants } = await api.get(
+            `/players/${p.id}/headshots`, { timeout: 90000 }
+          )
+          for (const v of variants) {
+            expanded.push({
+              id: p.id,
+              name: p.name,
+              headshotTeamId: v.teamId,
+              headshotSeason: v.season,
+              variantLabel: v.season ? `${v.abbr} ${v.season}` : "Current",
+            })
+          }
+        } catch {
+          expanded.push({
+            id: p.id,
+            name: p.name,
+            headshotTeamId: null,
+            headshotSeason: null,
+            variantLabel: "Current",
+          })
+        }
+        if (cancelled) return
+        setSuggestedVariants([...expanded])   // progressive fill
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [suggested.data])
 
   // debounced search → expand each matched player into its era headshot variants
   useEffect(() => {
@@ -316,7 +359,7 @@ export default function PyramidEditor() {
     },
   })
 
-  const pool = searchResults.length > 0 ? searchResults : (suggested.data ?? [])
+  const pool = searchResults.length > 0 ? searchResults : suggestedVariants
   const filled = Object.keys(slots).length
 
    // Auto-scroll the page while dragging a player near the top/bottom edge,
@@ -556,7 +599,7 @@ export default function PyramidEditor() {
           <p className="text-xs text-text-muted mb-3">
             {searchResults.length > 0
               ? "Search results — each card is a different era headshot"
-              : "Suggested players"}
+              : "Suggested players — each card is a different era headshot"}
             {searching && <span className="ml-2 text-gold">loading eras…</span>}
           </p>
 

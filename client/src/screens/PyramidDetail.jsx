@@ -27,8 +27,13 @@ const shortDate = (iso) =>
     : ""
 
 const lastName = (name = "") => name.split(" ").slice(-1)[0]
-const eraLabel = (entry) => entry.headshotSeason || "Current"
-
+const eraLabel = (entry) => {
+  if (!entry.headshotSeason) return "Current"
+  const start = Number(entry.headshotSeason)
+  return Number.isNaN(start)
+    ? entry.headshotSeason
+    : `${start}-${String(start + 1).slice(-2)}`   // "2015" → "2015-16"
+}
 /* ---------- comment row ---------- */
 
 function CommentRow({ comment, me, onLike, onDelete }) {
