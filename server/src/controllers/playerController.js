@@ -141,3 +141,47 @@ export const getPlayerHeadshots = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch headshot variants" })
   }
 }
+
+const SUMMARY_TTL = 24 * 60 * 60 * 1000 // 24h — fine for retired players; bump down if you care about live current-season numbers
+ 
+export const getPlayerSummary = async (req, res) => {
+  const { playerId } = req.params
+  if (!/^\d+$/.test(playerId)) return res.status(400).json({ error: "Invalid player id" })
+ 
+  // season = start year, e.g. "2015"; anything else is treated as career
+  const season = /^\d{4}$/.test(req.query.season ?? "") ? req.query.season : null
+ 
+  const key = `players:summary:${playerId}:${season ?? "career"}`
+ 
+  try {
+    const summary = await cached(key, SUMMARY_TTL, async () => {
+      const scriptPath = path.resolve("python", "playerSummary.py")
+      const cmd = season
+        ? `python "${scriptPath}" ${playerId} ${season}`
+        : `python "${scriptPath}" ${playerId}`
+ 
+      const { stdout } = await execAsync(cmd, { timeout: 90000 })
+      const parsed = JSON.parse(stdout.trim())
+      if (parsed.error) throw new Error(parsed.error)
+      return parsed
+    })
+ 
+    // name comes from our own DB (cheap PK lookup, always fresh); the card
+    // already has a name too, so this is just a nicety. imageUrl stays null
+    // until you have a real full-body source — the card falls back to the headshot.
+    const player = await prisma.player.findUnique({
+      where: { id: Number(playerId) },
+      select: { name: true },
+    })
+ 
+    return res.json({
+      playerId: Number(playerId),
+      name: player?.name ?? null,
+      imageUrl: null,
+      ...summary,
+    })
+  } catch (err) {
+    console.error("getPlayerSummary error:", err)
+    return res.status(500).json({ error: "Failed to fetch player summary" })
+  }
+}

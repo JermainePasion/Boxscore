@@ -12,6 +12,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
 import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import PlayerHeadshot from "../components/PlayerHeadshot"
+import PlayerHoverCard from "../components/Playerhovercard"
 import AuthModal from "../components/AuthModal"
 
 const TIER_SIZES = [2, 3, 4, 5, 6]
@@ -80,8 +81,12 @@ function PyramidBoard({ tiers, compact = false }) {
                   style={{ width: cellWidth }}
                   className={`min-w-0 ${dims.cellPad} text-center`}
                 >
-                  <div
-                    className={`mx-auto mb-1.5 aspect-square w-full ${dims.avatarMax} overflow-hidden rounded-full bg-primary`}
+                  <PlayerHoverCard
+                    playerId={entry.player.id}
+                    teamId={entry.headshotTeamId}
+                    season={entry.headshotSeason}
+                    name={entry.player.name}
+                    className={`mx-auto mb-1.5 aspect-square w-full ${dims.avatarMax} cursor-pointer overflow-hidden rounded-full bg-primary outline-none ring-gold/70 transition hover:ring-2 focus-visible:ring-2`}
                   >
                     <PlayerHeadshot
                       playerId={entry.player.id}
@@ -89,7 +94,7 @@ function PyramidBoard({ tiers, compact = false }) {
                       season={entry.headshotSeason}
                       className="h-full w-full"
                     />
-                  </div>
+                  </PlayerHoverCard>
                   <div
                     className={`${dims.name} truncate font-medium leading-tight text-white`}
                     title={lastName(entry.player.name)}
