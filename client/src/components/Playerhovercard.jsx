@@ -84,13 +84,45 @@ function PlayerStatsCard({ name, query }) {
           {data?.name ?? name}
         </div>
         <div className="text-[10px] text-text-muted">
-          {query.isSuccess ? label : "\u00a0"}
+          {query.isLoading ? (
+            <span className="inline-block h-2 w-24 animate-pulse rounded bg-line align-middle" />
+          ) : query.isSuccess ? (
+            label
+          ) : (
+            "\u00a0"
+          )}
         </div>
       </div>
 
       {query.isLoading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-gold" />
+        <div className="animate-pulse">
+          <div className="flex">
+            {/* left: stat rows */}
+            <div className="flex-1 space-y-1 border-r border-line/60 px-3 py-2.5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex h-5 items-center justify-between">
+                  <div className="h-2.5 w-8 rounded bg-line" />
+                  <div className="h-2.5 w-9 rounded bg-line" />
+                </div>
+              ))}
+            </div>
+            {/* right: accolade tiles */}
+            <div className="flex w-[108px] shrink-0 flex-col justify-center gap-2 px-3 py-2.5">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-1 rounded-md bg-primary/40 py-2.5"
+                >
+                  <div className="h-6 w-6 rounded-full bg-line" />
+                  <div className="h-3.5 w-5 rounded bg-line" />
+                  <div className="h-2 w-7 rounded bg-line" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="border-t border-line/60 px-3 py-1.5">
+            <div className="h-1.5 w-32 rounded bg-line" />
+          </div>
         </div>
       ) : query.isError ? (
         <div className="px-3 py-10 text-center text-xs text-text-muted">
