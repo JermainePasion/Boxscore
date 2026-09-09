@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useParams, useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded"
@@ -6,6 +6,8 @@ import FavoriteBorderRoundedIcon from "@mui/icons-material/FavoriteBorderRounded
 import EditRoundedIcon from "@mui/icons-material/EditRounded"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded"
+import OpenInFullRoundedIcon from "@mui/icons-material/OpenInFullRounded"
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
 
 import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
@@ -34,6 +36,119 @@ const eraLabel = (entry) => {
     ? entry.headshotSeason
     : `${start}-${String(start + 1).slice(-2)}`   // "2015" → "2015-16"
 }
+
+/* ---------- pyramid board (reused compact + enlarged) ---------- */
+
+function PyramidBoard({ tiers, compact = false }) {
+  const dims = compact
+    ? {
+        stackGap: "gap-2.5",
+        cellPad: "px-1",
+        avatarMax: "max-w-[48px]",
+        tierLabel: "text-[9px]",
+        name: "text-[10px]",
+        era: "text-[9px]",
+      }
+    : {
+        stackGap: "gap-5",
+        cellPad: "px-1.5",
+        avatarMax: "max-w-[84px]",
+        tierLabel: "text-[10px]",
+        name: "text-xs",
+        era: "text-[11px]",
+      }
+
+  // The widest tier sets a single shared cell width, so every tier's width is
+  // proportional to its player count → tier 5 (6) is wider than tier 4 (5), etc.
+  const maxCount = Math.max(1, ...tiers.map((t) => t.length))
+  const cellWidth = `${100 / maxCount}%`
+
+  return (
+    <div className={`flex flex-col items-center ${dims.stackGap}`}>
+      {tiers.map((tier, i) =>
+        tier.length === 0 ? null : (
+          <div key={i} className="w-full">
+            <div
+              className={`mb-1.5 text-center font-semibold uppercase tracking-[0.16em] text-text-muted ${dims.tierLabel}`}
+            >
+              Tier {i + 1}
+            </div>
+            <div className="flex flex-nowrap items-start justify-center">
+              {tier.map((entry) => (
+                <div
+                  key={entry.id}
+                  style={{ width: cellWidth }}
+                  className={`min-w-0 ${dims.cellPad} text-center`}
+                >
+                  <div
+                    className={`mx-auto mb-1.5 aspect-square w-full ${dims.avatarMax} overflow-hidden rounded-full bg-primary`}
+                  >
+                    <PlayerHeadshot
+                      playerId={entry.player.id}
+                      teamId={entry.headshotTeamId}
+                      season={entry.headshotSeason}
+                      className="h-full w-full"
+                    />
+                  </div>
+                  <div
+                    className={`${dims.name} truncate font-medium leading-tight text-white`}
+                    title={lastName(entry.player.name)}
+                  >
+                    {lastName(entry.player.name)}
+                  </div>
+                  <div className={`${dims.era} truncate text-text-muted`}>
+                    {eraLabel(entry)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
+/* ---------- enlarged pyramid modal ---------- */
+
+function PyramidModal({ open, onClose, title, tiers }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => e.key === "Escape" && onClose()
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-line bg-surface p-6 sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-text-muted transition-colors hover:bg-primary hover:text-white"
+          >
+            <CloseRoundedIcon sx={{ fontSize: 18 }} />
+          </button>
+        </div>
+        <PyramidBoard tiers={tiers} />
+      </div>
+    </div>
+  )
+}
+
 /* ---------- comment row ---------- */
 
 function CommentRow({ comment, me, onLike, onDelete }) {
@@ -146,6 +261,7 @@ export default function PyramidDetail() {
   const qc = useQueryClient()
   const me = user?.id
   const [authOpen, setAuthOpen] = useState(false)
+  const [zoomOpen, setZoomOpen] = useState(false)
 
   const pyramidQ = useQuery({
     queryKey: ["pyramid", id],
@@ -203,7 +319,7 @@ export default function PyramidDetail() {
 
   if (pyramidQ.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="h-64 animate-pulse rounded-lg bg-surface" />
       </div>
     )
@@ -211,7 +327,7 @@ export default function PyramidDetail() {
 
   if (pyramidQ.isError || !pyramidQ.data) {
     return (
-      <div className="mx-auto max-w-3xl py-16 text-center">
+      <div className="mx-auto max-w-6xl py-16 text-center">
         <p className="text-sm text-text-muted">This pyramid doesn’t exist.</p>
         <Link to="/pyramid" className="mt-3 inline-block text-sm text-gold hover:underline">
           ← Back to pyramids
@@ -226,7 +342,7 @@ export default function PyramidDetail() {
   const comments = commentsQ.data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <button
         type="button"
         onClick={() => navigate("/pyramid")}
@@ -236,122 +352,122 @@ export default function PyramidDetail() {
         All pyramids
       </button>
 
-      <div className="rounded-lg border border-line bg-surface p-5 sm:p-7">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold text-white sm:text-3xl">
-              {pyramid.title}
-            </h1>
-            <p className="mt-1 text-xs text-text-muted">
-              {pyramid.user ? (
-                <>
-                  by{" "}
-                  <Link
-                    to={`/user/${pyramid.user.username}`}
-                    className="hover:text-gold"
-                  >
-                    {pyramid.user.username}
-                  </Link>{" "}
-                  ·{" "}
-                </>
-              ) : null}
-              updated {shortDate(pyramid.updatedAt)}
-            </p>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start">
+        {/* ---------- left: compact pyramid (click to enlarge) ---------- */}
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-semibold text-white">
+                  {pyramid.title}
+                </h1>
+                <p className="mt-1 text-xs text-text-muted">
+                  {pyramid.user ? (
+                    <>
+                      by{" "}
+                      <Link
+                        to={`/user/${pyramid.user.username}`}
+                        className="hover:text-gold"
+                      >
+                        {pyramid.user.username}
+                      </Link>{" "}
+                      ·{" "}
+                    </>
+                  ) : null}
+                  updated {shortDate(pyramid.updatedAt)}
+                </p>
+              </div>
 
-          {isOwner ? (
+              {isOwner ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/pyramid/edit?id=${pyramid.id}`)}
+                  className="flex shrink-0 items-center gap-1.5 rounded bg-accent-orange px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
+                >
+                  <EditRoundedIcon sx={{ fontSize: 15 }} />
+                  Edit
+                </button>
+              ) : null}
+            </div>
+
             <button
               type="button"
-              onClick={() => navigate(`/pyramid/edit?id=${pyramid.id}`)}
-              className="flex shrink-0 items-center gap-2 rounded bg-accent-orange px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
+              onClick={() => setZoomOpen(true)}
+              aria-label="Enlarge pyramid"
+              className="group relative mt-5 block w-full cursor-zoom-in rounded-md p-1 transition-colors hover:bg-primary/20"
             >
-              <EditRoundedIcon sx={{ fontSize: 15 }} />
-              Edit
-            </button>
-          ) : null}
-        </div>
+              <span className="pointer-events-none absolute right-1 top-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-primary-dark/70 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                <OpenInFullRoundedIcon sx={{ fontSize: 14 }} />
+              </span>
 
-        <div className="mt-6 flex flex-col items-center gap-5">
-          {tiers.map((tier, i) =>
-            tier.length === 0 ? null : (
-              <div key={i} className="w-full">
-                <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
-                  Tier {i + 1}
-                </div>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {tier.map((entry) => (
-                    <div key={entry.id} className="w-[76px] text-center">
-                      <div className="mx-auto mb-1.5 h-14 w-14 overflow-hidden rounded-full bg-primary">
-                        <PlayerHeadshot
-                          playerId={entry.player.id}
-                          teamId={entry.headshotTeamId}
-                          season={entry.headshotSeason}
-                          className="h-full w-full"
-                        />
-                      </div>
-                      <div className="text-[11px] font-medium leading-tight text-white">
-                        {lastName(entry.player.name)}
-                      </div>
-                      <div className="text-[10px] text-text-muted">
-                        {eraLabel(entry)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
+              <PyramidBoard tiers={tiers} compact />
+
+              <span className="mt-3 block text-center text-[10px] font-medium uppercase tracking-[0.14em] text-text-muted transition-colors group-hover:text-gold">
+                Click to enlarge
+              </span>
+            </button>
+          </div>
+        </aside>
+
+        {/* ---------- right: comments ---------- */}
+        <section className="min-w-0">
+          <div className="mb-4 flex items-center gap-4">
+            <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
+              Comments {comments.length > 0 ? `(${comments.length})` : ""}
+            </h2>
+            <div className="h-px flex-1 bg-accent-red" />
+          </div>
+
+          {isAuthed ? (
+            <Composer onSubmit={handlePost} pending={postM.isPending} />
+          ) : (
+            <div className="mb-6 rounded-md border border-dashed border-line bg-surface/40 px-6 py-6 text-center text-sm text-text-muted">
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="font-semibold text-gold hover:underline"
+              >
+                Sign in
+              </button>{" "}
+              to join the conversation.
+            </div>
           )}
-        </div>
+
+          {/* scrolls on its own so the pyramid stays in view beside it */}
+          <div className="lg:max-h-[calc(100vh-16rem)] lg:overflow-y-auto lg:pr-1">
+            {commentsQ.isLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-md bg-surface" />
+                ))}
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="py-6 text-center text-sm text-text-muted">
+                No comments yet — be the first.
+              </p>
+            ) : (
+              <div>
+                {comments.map((c) => (
+                  <CommentRow
+                    key={c.id}
+                    comment={c}
+                    me={me}
+                    onLike={handleLike}
+                    onDelete={(cid) => deleteM.mutate(cid)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
-      {/* comments */}
-      <section className="mt-8">
-        <div className="mb-4 flex items-center gap-4">
-          <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
-            Comments {comments.length > 0 ? `(${comments.length})` : ""}
-          </h2>
-          <div className="h-px flex-1 bg-accent-red" />
-        </div>
-
-        {isAuthed ? (
-          <Composer onSubmit={handlePost} pending={postM.isPending} />
-        ) : (
-          <div className="mb-6 rounded-md border border-dashed border-line bg-surface/40 px-6 py-6 text-center text-sm text-text-muted">
-            <button
-              type="button"
-              onClick={() => setAuthOpen(true)}
-              className="font-semibold text-gold hover:underline"
-            >
-              Sign in
-            </button>{" "}
-            to join the conversation.
-          </div>
-        )}
-
-        {commentsQ.isLoading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded-md bg-surface" />
-            ))}
-          </div>
-        ) : comments.length === 0 ? (
-          <p className="py-6 text-center text-sm text-text-muted">
-            No comments yet — be the first.
-          </p>
-        ) : (
-          <div>
-            {comments.map((c) => (
-              <CommentRow
-                key={c.id}
-                comment={c}
-                me={me}
-                onLike={handleLike}
-                onDelete={(cid) => deleteM.mutate(cid)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      <PyramidModal
+        open={zoomOpen}
+        onClose={() => setZoomOpen(false)}
+        title={pyramid.title}
+        tiers={tiers}
+      />
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />
     </div>
