@@ -1,47 +1,25 @@
-"""
-python/playerSummary.py
-
-Usage:  python playerSummary.py <playerId> [seasonStartYear]
-        python playerSummary.py 201939 2015
-        python playerSummary.py 201939            # -> career
-
-Prints ONE JSON object to stdout (matching your other scripts' contract):
-
-    {
-      "statsSource": "season" | "career",
-      "seasonLabel": "2015-16" | null,
-      "perGame": {"pts":30.1,"reb":5.4,"ast":6.7,"stl":2.1,"blk":0.2},
-      "bestThreePct": 45.4,              # career-high single-season 3P%, 0-100
-      "accolades": {"mvp": 2, "championships": 4}
-    }
-
-  or  {"error": "..."} on failure, which the controller turns into a 500.
-
-The controller adds playerId / name (from Prisma) / imageUrl, so they're not
-here. requires: pip install nba_api
-
-------------------------------------------------------------------
-Two fields aren't clean from nba_api (same caveats as before):
-  - CHAMPIONSHIPS: not in the stats API. Read from the curated RINGS map
-    below (ring counts are fixed history, so a hand-kept map is fine).
-    If you'd rather store them, add a column to Player and read it in the
-    controller instead.
-  - FULL-BODY PHOTO: no public NBA source, so the controller returns
-    imageUrl=null and the card falls back to your season headshot.
-------------------------------------------------------------------
-"""
 
 import sys
+import os
 import json
 
-# NBA player id -> championships won. Extend as your pyramids need.
-RINGS = {
-    201939: 4,   # Stephen Curry
-    2544: 4,     # LeBron James
-    977: 5,      # Kobe Bryant
-    893: 6,      # Michael Jordan
-    # ...
-}
+_HERE = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(_HERE, "champions.json"), encoding="utf-8") as _f:
+    CHAMPIONS = json.load(_f)
+
+OVERRIDE_RINGS = {}
+
+
+def count_rings(player_id, seasons):
+    """Rings = distinct seasons where the player's team won the title."""
+    if int(player_id) in OVERRIDE_RINGS:
+        return OVERRIDE_RINGS[int(player_id)]
+    won = {
+        r.get("SEASON_ID")
+        for r in seasons
+        if CHAMPIONS.get(r.get("SEASON_ID")) == r.get("TEAM_ABBREVIATION")
+    }
+    return len(won)
 
 
 def per_game(row):
@@ -59,7 +37,7 @@ def per_game(row):
 
 def season_label(start_year):
     y = int(start_year)
-    return f"{y}-{str(y + 1)[-2:]}"   # 2015 -> "2015-16"
+    return f"{y}-{str(y + 1)[-2:]}"  
 
 
 def main():
@@ -106,7 +84,7 @@ def main():
     source = "season" if chosen else "career"
     stat_row = chosen or career_row or {}
 
-    # MVPs from PlayerAwards; championships from the curated map
+    # MVPs from PlayerAwards; championships derived from CHAMPIONS (see count_rings)
     mvp = 0
     try:
         awards = playerawards.PlayerAwards(
@@ -124,7 +102,7 @@ def main():
         "seasonLabel": label,
         "perGame": per_game(stat_row),
         "bestThreePct": round(best3 * 100, 1),
-        "accolades": {"mvp": mvp, "championships": RINGS.get(int(player_id), 0)},
+        "accolades": {"mvp": mvp, "championships": count_rings(player_id, seasons)},
     }))
 
 
