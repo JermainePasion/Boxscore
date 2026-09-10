@@ -13,6 +13,8 @@ import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import PlayerHeadshot from "../components/PlayerHeadshot"
 import PlayerHoverCard from "../components/Playerhovercard"
+import BasketballRating from "../components/GameDetail/BasketballRating"
+import PyramidReviewModal from "../components/Pyramid/Pyramidreviewmodal"
 import AuthModal from "../components/AuthModal"
 
 const TIER_SIZES = [2, 3, 4, 5, 6]
@@ -35,7 +37,7 @@ const eraLabel = (entry) => {
   const start = Number(entry.headshotSeason)
   return Number.isNaN(start)
     ? entry.headshotSeason
-    : `${start}-${String(start + 1).slice(-2)}`   // "2015" → "2015-16"
+    : `${start}-${String(start + 1).slice(-2)}`   // "2015" -> "2015-16"
 }
 
 /* ---------- pyramid board (reused compact + enlarged) ---------- */
@@ -60,7 +62,7 @@ function PyramidBoard({ tiers, compact = false }) {
       }
 
   // The widest tier sets a single shared cell width, so every tier's width is
-  // proportional to its player count → tier 5 (6) is wider than tier 4 (5), etc.
+  // proportional to its player count -> tier 5 (6) is wider than tier 4 (5), etc.
   const maxCount = Math.max(1, ...tiers.map((t) => t.length))
   const cellWidth = `${100 / maxCount}%`
 
@@ -154,6 +156,79 @@ function PyramidModal({ open, onClose, title, tiers }) {
   )
 }
 
+/* ---------- review row ---------- */
+
+function ReviewRow({ review, me, onLike, onDelete }) {
+  const liked = review.likes.some((l) => l.userId === me)
+  const count = review.likes.length
+  const isMine = review.userId === me
+
+  return (
+    <div className="flex gap-3 border-b border-line/60 py-4 last:border-0">
+      <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-primary text-xs font-semibold uppercase text-white">
+        {review.user?.avatarUrl ? (
+          <img src={review.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          review.user?.username?.[0] ?? "?"
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-xs">
+          <Link
+            to={`/user/${review.user?.username}`}
+            className="font-semibold text-white hover:text-gold"
+          >
+            {review.user?.username}
+          </Link>
+          <span className="text-text-muted">{shortDate(review.createdAt)}</span>
+        </div>
+
+        {/* rating - display only */}
+        <div className="pointer-events-none mt-1 inline-flex">
+          <BasketballRating value={review.rating} size={15} />
+        </div>
+
+        {review.review ? (
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-text-muted">
+            {review.review}
+          </p>
+        ) : null}
+
+        <div className="mt-2 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => onLike(review.id)}
+            className={`flex items-center gap-1 text-xs transition-colors ${
+              liked ? "text-accent-red" : "text-text-muted hover:text-accent-red"
+            }`}
+            aria-pressed={liked}
+            aria-label={liked ? "Unlike review" : "Like review"}
+          >
+            {liked ? (
+              <FavoriteRoundedIcon sx={{ fontSize: 15 }} />
+            ) : (
+              <FavoriteBorderRoundedIcon sx={{ fontSize: 15 }} />
+            )}
+            {count > 0 ? count : null}
+          </button>
+
+          {isMine ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-accent-red"
+            >
+              <DeleteOutlineRoundedIcon sx={{ fontSize: 15 }} />
+              Delete
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ---------- comment row ---------- */
 
 function CommentRow({ comment, me, onLike, onDelete }) {
@@ -240,7 +315,7 @@ function Composer({ onSubmit, pending }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         rows={3}
-        placeholder="Add a comment…"
+        placeholder="Add a comment..."
         className="w-full resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-white placeholder:text-text-muted focus:border-primary-light focus:outline-none"
       />
       <div className="mt-2 flex justify-end">
@@ -250,7 +325,7 @@ function Composer({ onSubmit, pending }) {
           disabled={pending || !value.trim()}
           className="rounded bg-accent-orange px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {pending ? "Posting…" : "Post"}
+          {pending ? "Posting..." : "Post"}
         </button>
       </div>
     </div>
@@ -267,10 +342,16 @@ export default function PyramidDetail() {
   const me = user?.id
   const [authOpen, setAuthOpen] = useState(false)
   const [zoomOpen, setZoomOpen] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
 
   const pyramidQ = useQuery({
     queryKey: ["pyramid", id],
     queryFn: () => api.get(`/pyramid/${id}`).then((r) => r.data),
+  })
+
+  const reviewsQ = useQuery({
+    queryKey: ["pyramid-reviews", id],
+    queryFn: () => api.get(`/pyramid-reviews/pyramid/${id}`).then((r) => r.data),
   })
 
   const commentsQ = useQuery({
@@ -278,6 +359,43 @@ export default function PyramidDetail() {
     queryFn: () => api.get(`/comments/pyramid/${id}`).then((r) => r.data),
   })
 
+  /* reviews: rate / write / delete */
+  const rateM = useMutation({
+    mutationFn: (body) => api.put(`/pyramid-reviews/pyramid/${id}`, body).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pyramid-reviews", id] }),
+  })
+
+  const deleteReviewM = useMutation({
+    mutationFn: () => api.delete(`/pyramid-reviews/pyramid/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pyramid-reviews", id] }),
+  })
+
+  // optimistic like toggle for reviews
+  const likeReviewM = useMutation({
+    mutationFn: (reviewId) => api.post(`/pyramid-reviews/${reviewId}/like`),
+    onMutate: async (reviewId) => {
+      await qc.cancelQueries({ queryKey: ["pyramid-reviews", id] })
+      const prev = qc.getQueryData(["pyramid-reviews", id])
+      qc.setQueryData(["pyramid-reviews", id], (old = []) =>
+        old.map((rv) => {
+          if (rv.id !== reviewId) return rv
+          const liked = rv.likes.some((l) => l.userId === me)
+          return {
+            ...rv,
+            likes: liked
+              ? rv.likes.filter((l) => l.userId !== me)
+              : [...rv.likes, { userId: me }],
+          }
+        })
+      )
+      return { prev }
+    },
+    onError: (_e, _v, ctx) =>
+      ctx?.prev && qc.setQueryData(["pyramid-reviews", id], ctx.prev),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["pyramid-reviews", id] }),
+  })
+
+  /* comments: post / delete / like */
   const postM = useMutation({
     mutationFn: (content) => api.post("/comments", { content, pyramidId: id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pyramid-comments", id] }),
@@ -288,7 +406,6 @@ export default function PyramidDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pyramid-comments", id] }),
   })
 
-  // optimistic like toggle
   const likeM = useMutation({
     mutationFn: (commentId) => api.post(`/comments/${commentId}/like`),
     onMutate: async (commentId) => {
@@ -314,6 +431,19 @@ export default function PyramidDetail() {
       qc.invalidateQueries({ queryKey: ["pyramid-comments", id] }),
   })
 
+  const handleQuickRate = (r) => {
+    if (!isAuthed) return setAuthOpen(true)
+    rateM.mutate({ rating: r })
+  }
+
+  const submitReview = (body) =>
+    rateM.mutate(body, { onSuccess: () => setReviewOpen(false) })
+
+  const handleReviewLike = (reviewId) => {
+    if (!isAuthed) return setAuthOpen(true)
+    likeReviewM.mutate(reviewId)
+  }
+
   const handleLike = (commentId) => {
     if (!isAuthed) return setAuthOpen(true)
     likeM.mutate(commentId)
@@ -333,9 +463,9 @@ export default function PyramidDetail() {
   if (pyramidQ.isError || !pyramidQ.data) {
     return (
       <div className="mx-auto max-w-6xl py-16 text-center">
-        <p className="text-sm text-text-muted">This pyramid doesn’t exist.</p>
+        <p className="text-sm text-text-muted">This pyramid doesn't exist.</p>
         <Link to="/pyramid" className="mt-3 inline-block text-sm text-gold hover:underline">
-          ← Back to pyramids
+          &larr; Back to pyramids
         </Link>
       </div>
     )
@@ -345,6 +475,13 @@ export default function PyramidDetail() {
   const tiers = groupByTier(pyramid.players)
   const isOwner = me && pyramid.user?.id === me
   const comments = commentsQ.data ?? []
+
+  const reviews = reviewsQ.data ?? []
+  const myReview = reviews.find((r) => r.userId === me) ?? null
+  const reviewCount = reviews.length
+  const avgRating = reviewCount
+    ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviewCount
+    : 0
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -358,8 +495,8 @@ export default function PyramidDetail() {
       </button>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start">
-        {/* ---------- left: compact pyramid (click to enlarge) ---------- */}
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+        {/* ---------- left: compact pyramid + rate panel ---------- */}
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-lg border border-line bg-surface p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -376,7 +513,7 @@ export default function PyramidDetail() {
                       >
                         {pyramid.user.username}
                       </Link>{" "}
-                      ·{" "}
+                      &middot;{" "}
                     </>
                   ) : null}
                   updated {shortDate(pyramid.updatedAt)}
@@ -412,34 +549,117 @@ export default function PyramidDetail() {
               </span>
             </button>
           </div>
-        </aside>
 
-        {/* ---------- right: comments ---------- */}
-        <section className="min-w-0">
-          <div className="mb-4 flex items-center gap-4">
-            <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
-              Comments {comments.length > 0 ? `(${comments.length})` : ""}
-            </h2>
-            <div className="h-px flex-1 bg-accent-red" />
-          </div>
+          {/* rate panel */}
+          <div className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold leading-none tabular-nums text-white">
+                  {reviewCount ? avgRating.toFixed(1) : "-"}
+                </span>
+                <span className="mt-1 text-[10px] uppercase tracking-wider text-text-muted">
+                  {reviewCount} rating{reviewCount !== 1 ? "s" : ""}
+                </span>
+              </div>
 
-          {isAuthed ? (
-            <Composer onSubmit={handlePost} pending={postM.isPending} />
-          ) : (
-            <div className="mb-6 rounded-md border border-dashed border-line bg-surface/40 px-6 py-6 text-center text-sm text-text-muted">
+              <div className="h-10 w-px shrink-0 bg-line" />
+
+              <div className="min-w-0">
+                <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                  Your rating
+                </div>
+                <BasketballRating
+                  value={myReview?.rating ?? 0}
+                  onChange={handleQuickRate}
+                  size={24}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => (isAuthed ? setReviewOpen(true) : setAuthOpen(true))}
+              className="mt-4 w-full rounded-md bg-accent-orange px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
+            >
+              {myReview ? "Edit review" : "Write a review"}
+            </button>
+
+            {myReview ? (
               <button
                 type="button"
-                onClick={() => setAuthOpen(true)}
-                className="font-semibold text-gold hover:underline"
+                onClick={() => deleteReviewM.mutate()}
+                disabled={deleteReviewM.isPending}
+                className="mt-2 w-full text-center text-[11px] text-text-muted transition-colors hover:text-accent-red disabled:opacity-50"
               >
-                Sign in
-              </button>{" "}
-              to join the conversation.
-            </div>
-          )}
+                Remove my rating
+              </button>
+            ) : null}
+          </div>
+        </aside>
 
-          {/* scrolls on its own so the pyramid stays in view beside it */}
-          <div className="lg:max-h-[calc(100vh-16rem)] lg:overflow-y-auto lg:pr-1">
+        {/* ---------- right: reviews + comments ---------- */}
+        <section className="min-w-0 space-y-10">
+          {/* reviews */}
+          <div>
+            <div className="mb-4 flex items-center gap-4">
+              <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
+                Reviews {reviewCount > 0 ? `(${reviewCount})` : ""}
+              </h2>
+              <div className="h-px flex-1 bg-accent-red" />
+            </div>
+
+            {reviewsQ.isLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="h-20 animate-pulse rounded-md bg-surface" />
+                ))}
+              </div>
+            ) : reviews.length === 0 ? (
+              <p className="py-6 text-center text-sm text-text-muted">
+                No reviews yet -{" "}
+                {isAuthed
+                  ? "be the first to rate this pyramid."
+                  : "sign in to rate this pyramid."}
+              </p>
+            ) : (
+              <div>
+                {reviews.map((r) => (
+                  <ReviewRow
+                    key={r.id}
+                    review={r}
+                    me={me}
+                    onLike={handleReviewLike}
+                    onDelete={() => deleteReviewM.mutate()}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* comments */}
+          <div>
+            <div className="mb-4 flex items-center gap-4">
+              <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
+                Comments {comments.length > 0 ? `(${comments.length})` : ""}
+              </h2>
+              <div className="h-px flex-1 bg-accent-red" />
+            </div>
+
+            {isAuthed ? (
+              <Composer onSubmit={handlePost} pending={postM.isPending} />
+            ) : (
+              <div className="mb-6 rounded-md border border-dashed border-line bg-surface/40 px-6 py-6 text-center text-sm text-text-muted">
+                <button
+                  type="button"
+                  onClick={() => setAuthOpen(true)}
+                  className="font-semibold text-gold hover:underline"
+                >
+                  Sign in
+                </button>{" "}
+                to join the conversation.
+              </div>
+            )}
+
             {commentsQ.isLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -448,7 +668,7 @@ export default function PyramidDetail() {
               </div>
             ) : comments.length === 0 ? (
               <p className="py-6 text-center text-sm text-text-muted">
-                No comments yet — be the first.
+                No comments yet - be the first.
               </p>
             ) : (
               <div>
@@ -472,6 +692,14 @@ export default function PyramidDetail() {
         onClose={() => setZoomOpen(false)}
         title={pyramid.title}
         tiers={tiers}
+      />
+
+      <PyramidReviewModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        existing={myReview}
+        onSubmit={submitReview}
+        pending={rateM.isPending}
       />
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />

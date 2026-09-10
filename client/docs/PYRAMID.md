@@ -3,7 +3,7 @@
 User-built tiered rankings of the greatest players. Each user can keep multiple
 named pyramids, place players into five tiers, and pin an era-specific headshot
 per placement. Pyramids are browsable by everyone and, on their detail page,
-open to comments and comment likes.
+open to ratings, reviews, comments, and likes.
 
 ## Concept
 
@@ -35,6 +35,7 @@ model GoatPyramid {
   user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   players  GoatPyramidPlayer[]
   comments Comment[]
+  reviews  PyramidReview[]
 
   @@index([userId])
 }
@@ -55,7 +56,8 @@ model GoatPyramidPlayer {
 }
 ```
 
-- Deleting a pyramid cascades to its placements and (via `Comment`) its comments.
+- Deleting a pyramid cascades to its placements, its reviews (and review likes),
+  and — via `Comment` — its comments.
 - `Comment.pyramidId` is the optional link that lets a comment attach to a
   pyramid (comments are shared across games / reviews / pyramids).
 - An "era" is the pair `(headshotTeamId, headshotSeason)`. `null/null` means
@@ -142,7 +144,8 @@ card, the "+ New" button, and the detail page's owner **Edit** button.
 
 ### Detail — `PyramidDetail.jsx` (`/pyramid/:id`)
 
-Full pyramid view plus the comment thread. Documented in full below.
+Full pyramid view plus ratings/reviews and the comment thread. Documented in
+full below.
 
 ## API reference (pyramid core)
 
@@ -177,8 +180,8 @@ are derived from a `likes` array on each comment (count + liked-by-me) rather
 than a denormalized counter, mirroring how `getReviewsByGame` already returns
 `likes: { select: { userId: true } }`.
 
-Reviews (rating + text) are **not** part of this — pyramids have no review
-model. See [Not included](#not-included).
+Reviews (rating + text) are a **separate feature on the same page** — see
+[Detail Page — Reviews & Ratings](#detail-page--reviews--ratings).
 
 ## Data model
 
@@ -280,7 +283,7 @@ same router so the param route doesn't swallow `pyramid`.
 ### `src/pages/PyramidDetail.jsx`
 
 - Fetches the pyramid (`GET /pyramid/:id`) and its comments
-  (`GET /comments/pyramid/:id`) as two TanStack queries.
+  (`GET /comments/pyramid/:id`) as TanStack queries.
 - Renders the full pyramid by tier, plus an owner-only **Edit** button routing
   to `/pyramid/edit?id=:id`.
 - Comment section: composer (signed-in only), list, delete-own, and an
@@ -330,17 +333,209 @@ Comment shape from the pyramid fetch:
 Client derives `count = likes.length` and
 `likedByMe = likes.some(l => l.userId === me)`.
 
+---
+
+# Detail Page — Reviews & Ratings
+
+Adds rated reviews to pyramids: a **1–10 rating** (via the shared
+`BasketballRating`, where each ball = 2 units, so 5 balls = 10) plus optional
+text, one per user per pyramid, with per-review likes. Rendered on
+`/pyramid/:id` alongside the comment thread. This is the `PyramidReview` model
+previously flagged as "Not included" — now built.
+
+## Overview
+
+Signed-in users can rate a pyramid (quick-rate by clicking the basketballs) and
+optionally write a text review. **One review per user per pyramid** — re-rating
+updates the existing row (upsert), it doesn't stack. Everyone can read reviews
+and like them; authors can delete their own. Likes reuse the comment-like
+pattern: a `likes` array on each review (count + liked-by-me) with an optimistic
+toggle.
+
+## Data model
+
+Two new tables, `PyramidReview` and `PyramidReviewLike` (a clone of
+`CommentLike`). Mirrors `GameReview` / `ReviewLike`, minus the game-only
+`watchedAt` / `watchedBefore` and the denormalized `likeCount`.
+
+```prisma
+model PyramidReview {
+  id         String   @id @default(uuid())
+  userId     String
+  pyramidId  String
+  rating     Int
+  review     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pyramid  GoatPyramid         @relation(fields: [pyramidId], references: [id], onDelete: Cascade)
+  likes    PyramidReviewLike[]
+
+  @@unique([userId, pyramidId])
+  @@index([pyramidId])
+}
+
+model PyramidReviewLike {
+  id         String   @id @default(uuid())
+  userId     String
+  reviewId   String
+  createdAt  DateTime @default(now())
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review   PyramidReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+}
+```
+
+Back-relations:
+
+```prisma
+// model User
+pyramidReviews      PyramidReview[]
+pyramidReviewLikes  PyramidReviewLike[]
+
+// model GoatPyramid
+reviews  PyramidReview[]
+```
+
+- `rating` is an **integer 1–10** — `BasketballRating` emits 1–10 (each ball = 2
+  units, half-steps allowed), the same scale as `GameReview.rating`. Displayed
+  in balls by dividing by 2.
+- `@@unique([userId, pyramidId])` is what enables the upsert (create-or-update
+  the caller's single review).
+- **Cascade difference from `GameReview`:** `GameReview` sets no cascades, so
+  `deleteReview` cleans up likes/comments manually in a transaction. Here
+  `PyramidReviewLike.review` sets `onDelete: Cascade`, so deleting a review drops
+  its likes automatically — the delete handler is a plain `deleteMany`.
+
+### Migration
+
+```bash
+npx prisma migrate dev --name add_pyramid_reviews
+```
+
+## Backend
+
+Handlers live in `src/controllers/pyramidReviewController.js`, routed in
+`src/routes/pyramidReviewRoutes.js`, mounted at `/api/pyramid-reviews`. Auth uses
+`req.user?.userId` (the app-wide convention) with a 401 guard.
+
+- `getReviewsByPyramid` — public; a pyramid's reviews, newest first. Includes
+  `user` (`id`, `username`, `avatarUrl`) and `likes: { select: { userId: true } }`.
+- `upsertPyramidReview` — auth. Create-or-update the caller's review via `upsert`
+  on `userId_pyramidId`. Validates `rating` is an integer 1–10; 404 if the
+  pyramid doesn't exist. A quick-rate omits `review`, so existing text is left
+  untouched (the handler only sets `review` when the key is present in the body).
+- `deletePyramidReview` — auth. `deleteMany({ userId, pyramidId })` (cascade
+  removes the likes).
+- `togglePyramidReviewLike` — auth. Toggles the caller's like; returns
+  `{ liked: boolean }`.
+
+### Routes
+
+`src/routes/pyramidReviewRoutes.js`:
+
+```javascript
+import express from "express"
+import {
+  getReviewsByPyramid,
+  upsertPyramidReview,
+  deletePyramidReview,
+  togglePyramidReviewLike,
+} from "../controllers/pyramidReviewController.js"
+import { authenticate } from "../middleware/authenticate.js"
+
+const router = express.Router()
+
+router.get("/pyramid/:pyramidId", getReviewsByPyramid)
+router.put("/pyramid/:pyramidId", authenticate, upsertPyramidReview)
+router.delete("/pyramid/:pyramidId", authenticate, deletePyramidReview)
+router.post("/:reviewId/like", authenticate, togglePyramidReviewLike)
+
+export default router
+```
+
+`index.js`:
+
+```javascript
+import pyramidReviewRoutes from "./src/routes/pyramidReviewRoutes.js"
+// ...
+app.use("/api/pyramid-reviews", pyramidReviewRoutes)
+```
+
+## Frontend
+
+### `src/pages/PyramidDetail.jsx`
+
+Adds a third TanStack query for reviews (`GET /pyramid-reviews/pyramid/:id`)
+alongside the pyramid and comments queries.
+
+- **Rate panel** (left sidebar, under the pyramid card): average rating + rating
+  count, the caller's interactive `BasketballRating` (clicking quick-rates via
+  `PUT`), a "Write a review" / "Edit review" button that opens the modal, and a
+  "Remove my rating" link. The average is derived client-side from the reviews
+  array (on the 1–10 scale — divide by 2 to show balls).
+- **Reviews section** (right column, above Comments): each review shows the
+  rating (read-only `BasketballRating`), optional text, an optimistic like
+  toggle, and delete-for-own. Mirrors the comment row.
+- **`PyramidReviewModal`** (`src/components/PyramidReviewModal.jsx`): rating
+  (`BasketballRating`) + text, pre-filled when editing, saved via the same
+  upsert.
+- **Layout:** with two stacked sections (Reviews + Comments), the comments'
+  internal scroll box was dropped — the page scrolls normally while the sticky
+  sidebar keeps the pyramid + Rate panel in view.
+
+Reuses the existing `BasketballRating`; read-only displays wrap it in
+`pointer-events-none` (the component also accepts a `readonly` prop). Rating
+input/quick-rate and likes gate behind auth via `AuthModal`, same as comments.
+
+## API reference (pyramid reviews)
+
+| Method | Path                                      | Auth | Returns                          |
+| ------ | ----------------------------------------- | ---- | -------------------------------- |
+| GET    | `/api/pyramid-reviews/pyramid/:pyramidId` | No   | `PyramidReview[]` with `likes[]` |
+| PUT    | `/api/pyramid-reviews/pyramid/:pyramidId` | Yes  | upserted `PyramidReview`         |
+| DELETE | `/api/pyramid-reviews/pyramid/:pyramidId` | Yes  | `{ message }`                    |
+| POST   | `/api/pyramid-reviews/:reviewId/like`     | Yes  | `{ liked: boolean }`             |
+
+`PUT` body: `{ rating: 1..10, review?: string }` (omit `review` for a quick-rate
+so existing text is preserved).
+
+Review shape from the fetch:
+
+```json
+{
+  "id": "…",
+  "rating": 8,
+  "review": "…",
+  "createdAt": "…",
+  "userId": "…",
+  "user": { "id": "…", "username": "…", "avatarUrl": "…" },
+  "likes": [{ "userId": "…" }]
+}
+```
+
+Client derives `count = likes.length`, `likedByMe = likes.some(l => l.userId === me)`,
+and the average as the mean of `rating` (divide by 2 to display balls).
+
+---
+
 ## Not included
 
-- **Rated reviews on pyramids** — would need a `PyramidReview` model
-  (rating + text + its own likes) plus endpoints and a page section. Not built.
 - **Pyramid-level likes** (liking the whole pyramid, Letterboxd-list style) — a
-  near-clone of `CommentLike` keyed on `pyramidId`. Not built.
+  near-clone of `CommentLike` / `PyramidReviewLike` keyed on `pyramidId`. Not built.
+- **Rating aggregates on the pyramid GET** — average/count are currently derived
+  client-side from the reviews array, not embedded in `PYRAMID_INCLUDE`. If the
+  gallery cards need them, add them server-side. Not built.
 
 ## Verify
 
 ```bash
 curl.exe http://localhost:5000/api/comments/pyramid/<PYRAMID_ID>
+curl.exe http://localhost:5000/api/pyramid-reviews/pyramid/<PYRAMID_ID>
 ```
 
-Expect `[]` or existing comments (not 404) before the UI depends on it.
+Expect `[]` or existing rows (not 404) before the UI depends on either.
