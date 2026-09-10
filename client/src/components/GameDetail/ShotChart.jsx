@@ -106,6 +106,50 @@ function CourtLines({ homeTeamId }) {
   )
 }
 
+/**
+ * Loading state. Mirrors the real layout — filter row, court panel, legend —
+ * so nothing shifts when the shots arrive. The court markings are static
+ * (they don't depend on the fetched shots), so we draw a faint schematic
+ * outline rather than a blank grey box.
+ */
+function ShotChartSkeleton() {
+  const cy = H / 2
+  return (
+    <div className="animate-pulse">
+      {/* filters */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="h-9 w-32 rounded-md bg-surface" />
+        <div className="h-9 w-36 rounded-md bg-surface" />
+        <div className="h-9 w-32 rounded-md bg-surface" />
+      </div>
+
+      {/* court */}
+      <div className="w-full overflow-hidden rounded-lg border border-line bg-surface">
+        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full">
+          <g stroke="var(--color-line)" strokeWidth="3" fill="none" opacity="0.5">
+            {/* boundary + half-court line + center circle */}
+            <rect x="0" y="0" width={W} height={H} />
+            <line x1={W / 2} y1="0" x2={W / 2} y2={H} />
+            <circle cx={W / 2} cy={cy} r="80" />
+            {/* paint hints */}
+            <rect x="0" y={cy - 80} width="190" height="160" />
+            <rect x={W - 190} y={cy - 80} width="190" height="160" />
+            {/* rims */}
+            <circle cx={HOOP} cy={cy} r="7.5" />
+            <circle cx={W - HOOP} cy={cy} r="7.5" />
+          </g>
+        </svg>
+      </div>
+
+      {/* legend */}
+      <div className="flex items-center justify-center gap-6 mt-3">
+        <div className="h-4 w-40 rounded bg-surface" />
+        <div className="h-4 w-40 rounded bg-surface" />
+      </div>
+    </div>
+  )
+}
+
 export default function ShotChart({ game }) {
   const [quarter, setQuarter] = useState("all")
   const [player, setPlayer] = useState("all")
@@ -132,7 +176,7 @@ export default function ShotChart({ game }) {
     (show === "all" || (show === "made") === s.made)
   ), [shots, quarter, player, show])
 
-  if (isLoading) return <p className="text-text-muted text-sm">Loading shot chart…</p>
+  if (isLoading) return <ShotChartSkeleton />
   if (isError) return <p className="text-text-muted text-sm">Shot chart unavailable for this game.</p>
 
   const selectCls = "bg-primary border border-line rounded-md px-3 py-1.5 text-sm text-white outline-none"
