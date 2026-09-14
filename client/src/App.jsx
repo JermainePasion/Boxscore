@@ -13,6 +13,7 @@ import Diary from "./screens/Diary"
 import Watchlist from "./screens/Watchlist"
 import Lists from "./screens/lists/Lists"
 import ListEditor from "./screens/lists/ListEditor"
+import ListDetail from "./screens/lists/ListDetail"
 
 function App() {
   return (
@@ -36,8 +37,11 @@ function App() {
           <Route path="/user/:username/diary" element={<Diary />} />
           
           <Route path="/watchlist" element={<Watchlist />} />
+
           <Route path="/lists" element={<Lists />} />
           <Route path="/lists/edit" element={<ListEditor />} />
+          <Route path="/lists/:id" element={<ListDetail />} />
+          
         </Route>
         <Route path="/login" element={<div>Login page</div>} />
         <Route path="/register" element={<div>Register page</div>} />

@@ -18,6 +18,7 @@ import watchlistRoutes from "./src/routes/watchlistRoutes.js"
 import listRoutes from "./src/routes/listRoutes.js"
 import commentRoutes from "./src/routes/commentRoutes.js"
 import pyramidReviewRoutes from "./src/routes/pyramidReviewRoutes.js"
+import listReviewRoutes from "./src/routes/listReviewRoutes.js"
 
 const app = express()
 
@@ -33,6 +34,7 @@ app.use("/api/pyramid-reviews", pyramidReviewRoutes)
 app.use("/api/comments", commentRoutes)
 app.use("/api/watchlist", watchlistRoutes)
 app.use("/api/lists", listRoutes)
+app.use("/api/list-reviews", listReviewRoutes)
 
 app.use("/api/users", userRoutes)
 app.use("/api/users", followRoutes) 
