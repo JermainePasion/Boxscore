@@ -32,6 +32,8 @@ model User {
   followers       Follow[] @relation("Following")
   pyramidReviews      PyramidReview[]
   pyramidReviewLikes  PyramidReviewLike[]
+  listReviews      ListReview[]
+  listReviewLikes  ListReviewLike[]
 }
 
 model Team {
@@ -153,6 +155,8 @@ model Comment {
   reviewId    String?
   pyramidId   String?
 
+  listId    String?
+
   content     String
   createdAt   DateTime @default(now())
 
@@ -161,11 +165,13 @@ model Comment {
   game        Game?        @relation(fields: [gameId], references: [id])
   review      GameReview?  @relation(fields: [reviewId], references: [id])
   pyramid     GoatPyramid? @relation(fields: [pyramidId], references: [id])
+  list      GameList? @relation(fields: [listId], references: [id])
 
   @@index([gameId])
   @@index([reviewId])
   @@index([pyramidId])
   @@index([userId])
+  @@index([listId])
 }
 
 model CommentLike {
@@ -294,6 +300,8 @@ model GameList {
 
   user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   items GameListItem[]
+  reviews   ListReview[]
+  comments  Comment[]
 
   @@index([userId])
 }
@@ -309,4 +317,34 @@ model GameListItem {
 
   @@unique([listId, gameId])   // a game appears once per list
   @@index([listId])
+}
+
+model ListReview {
+  id         String   @id @default(uuid())
+  userId     String
+  listId     String
+  rating     Int
+  review     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  list   GameList         @relation(fields: [listId], references: [id], onDelete: Cascade)
+  likes  ListReviewLike[]
+
+  @@unique([userId, listId])
+  @@index([listId])
+}
+
+model ListReviewLike {
+  id         String   @id @default(uuid())
+  userId     String
+  reviewId   String
+  createdAt  DateTime @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review ListReview  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
 }

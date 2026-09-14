@@ -243,19 +243,21 @@ export const toggleReviewLike = async (req, res) => {
 
 /**
  * POST /api/comments
- * Post a comment on a game, review, or pyramid.
- * Body: { content, gameId?, reviewId?, pyramidId? }
- * At least one of gameId / reviewId / pyramidId must be provided.
+ * Post a comment on a game, review, pyramid, or list.
+ * Body: { content, gameId?, reviewId?, pyramidId?, listId? }
+ * At least one of gameId / reviewId / pyramidId / listId must be provided.
  */
 export const createComment = async (req, res) => {
   const userId = req.user?.userId
   if (!userId) return res.status(401).json({ error: "Unauthorized" })
 
-  const { content, gameId, reviewId, pyramidId } = req.body
+  const { content, gameId, reviewId, pyramidId, listId } = req.body
 
   if (!content?.trim()) return res.status(400).json({ error: "content is required" })
-  if (!gameId && !reviewId && !pyramidId) {
-    return res.status(400).json({ error: "Provide at least one of gameId, reviewId, or pyramidId" })
+  if (!gameId && !reviewId && !pyramidId && !listId) {
+    return res.status(400).json({
+      error: "Provide at least one of gameId, reviewId, pyramidId, or listId",
+    })
   }
 
   try {
@@ -266,6 +268,7 @@ export const createComment = async (req, res) => {
         gameId: gameId ?? null,
         reviewId: reviewId ?? null,
         pyramidId: pyramidId ?? null,
+        listId: listId ?? null,
       },
       include: { user: { select: { id: true, username: true } } },
     })
@@ -286,7 +289,7 @@ export const getCommentsByGame = async (req, res) => {
 
   try {
     const comments = await prisma.comment.findMany({
-      where: { gameId, reviewId: null, pyramidId: null },
+      where: { gameId, reviewId: null, pyramidId: null, listId: null },
       orderBy: { createdAt: "asc" },
       include: { user: { select: { id: true, username: true } } },
     })
@@ -326,7 +329,7 @@ export const getCommentsByPyramid = async (req, res) => {
 
   try {
     const comments = await prisma.comment.findMany({
-      where: { pyramidId, gameId: null, reviewId: null },
+      where: { pyramidId, gameId: null, reviewId: null, listId: null },
       orderBy: { createdAt: "asc" },
       include: {
         user: { select: { id: true, username: true, avatarUrl: true } },
@@ -336,6 +339,25 @@ export const getCommentsByPyramid = async (req, res) => {
     return res.json(comments)
   } catch (err) {
     console.error("getCommentsByPyramid error:", err)
+    return res.status(500).json({ error: "Failed to fetch comments" })
+  }
+}
+
+export const getCommentsByList = async (req, res) => {
+  const { listId } = req.params
+
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { listId, gameId: null, reviewId: null, pyramidId: null },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { id: true, username: true, avatarUrl: true } },
+        likes: { select: { userId: true } },
+      },
+    })
+    return res.json(comments)
+  } catch (err) {
+    console.error("getCommentsByList error:", err)
     return res.status(500).json({ error: "Failed to fetch comments" })
   }
 }
