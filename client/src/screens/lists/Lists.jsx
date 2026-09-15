@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import AddRoundedIcon from "@mui/icons-material/AddRounded"
@@ -7,6 +7,7 @@ import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumbere
 import { api } from "../../lib/api"
 import { useAuth } from "../../context/AuthContext"
 import TeamLogo from "../../components/TeamLogo"
+import AuthModal from "../../components/AuthModal"
 
 /* ------------------------------------------------------------------ *
  *  Lists gallery — /lists                                             *
@@ -118,6 +119,7 @@ function GridSkeleton({ count = 4 }) {
 export default function Lists() {
   const { isAuthed } = useAuth()
   const navigate = useNavigate()
+  const [authOpen, setAuthOpen] = useState(false)
 
   const mine = useQuery({
     queryKey: ["lists", "me"],
@@ -178,9 +180,13 @@ export default function Lists() {
         <section className="mb-12">
           <SectionRule label="Your lists" />
           <div className="rounded-md border border-dashed border-line bg-surface/40 px-6 py-8 text-center text-sm text-text-muted">
-            <Link to="/login" className="font-semibold text-gold hover:underline">
+            <button
+              type="button"
+              onClick={() => setAuthOpen(true)}
+              className="font-semibold text-gold hover:underline"
+            >
               Sign in
-            </Link>{" "}
+            </button>{" "}
             to build your own lists.
           </div>
         </section>
@@ -203,6 +209,7 @@ export default function Lists() {
           </div>
         )}
       </section>
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />
     </div>
   )
 }
