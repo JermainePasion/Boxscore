@@ -19,6 +19,7 @@ import listRoutes from "./src/routes/listRoutes.js"
 import commentRoutes from "./src/routes/commentRoutes.js"
 import pyramidReviewRoutes from "./src/routes/pyramidReviewRoutes.js"
 import listReviewRoutes from "./src/routes/listReviewRoutes.js"
+import matchupRoutes from  "./src/routes/matchupRoutes.js"
 
 const app = express()
 
@@ -31,6 +32,7 @@ app.use("/api/reviews", reviewRoutes)
 app.use("/api/players", playerRoutes)
 app.use("/api/pyramid", pyramidRoutes)
 app.use("/api/pyramid-reviews", pyramidReviewRoutes)
+app.use("/api/matchups", matchupRoutes)
 app.use("/api/comments", commentRoutes)
 app.use("/api/watchlist", watchlistRoutes)
 app.use("/api/lists", listRoutes)
