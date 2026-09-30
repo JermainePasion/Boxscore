@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded"
@@ -218,7 +218,7 @@ const LINE_ROWS = [
   ["gameScore", "GmSc", fmt],
 ]
 
-function GameRow({ game, players, open, onToggle, onLoadVideo, loadingVideo }) {
+function GameRow({ game, players, open, onToggle, onLoadVideo, onRetryVideo, noHighlight }) {
   const [playing, setPlaying] = useState(false)
   const homeAway = game.home === "a" ? "vs." : "@"
   const winner = game.a.wl === "W" ? "a" : game.b.wl === "W" ? "b" : null
@@ -226,6 +226,12 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, loadingVideo }) {
   // collapsing the row also stops playback, so reopening shows the poster again
   useEffect(() => {
     if (!open) setPlaying(false)
+  }, [open])
+
+  // auto-fetch highlights the moment the row opens (deduped by the parent)
+  useEffect(() => {
+    if (open && !game.youtubeId && !noHighlight) onLoadVideo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   return (
@@ -335,17 +341,21 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, loadingVideo }) {
                 </div>
               </button>
             )
-          ) : (
+          ) : noHighlight ? (
             <div className="mt-3 text-center">
-              <p className="text-[11px] text-text-muted">No highlights loaded for this game yet.</p>
+              <p className="text-[11px] text-text-muted">No highlights found for this game.</p>
               <button
                 type="button"
-                onClick={onLoadVideo}
-                disabled={loadingVideo}
-                className="mt-2 rounded-md border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted transition-colors hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onRetryVideo}
+                className="mt-1 text-[11px] font-semibold text-gold transition-colors hover:underline"
               >
-                {loadingVideo ? "Finding highlights…" : "Load highlights"}
+                Try again
               </button>
+            </div>
+          ) : (
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-line py-8 text-xs text-text-muted">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-gold" />
+              Finding highlights…
             </div>
           )}
 
@@ -381,13 +391,53 @@ export default function Matchup() {
   })
 
   const qc = useQueryClient()
-  // Hitting GET /games/:id find-or-fetches the game AND runs findAndSaveHighlight,
-  // the same thing that happens when you open the game page. Then re-read the
-  // matchup so the row picks up the freshly-saved youtubeId.
+
+  // Games already auto-tried this session (so reopening a row doesn't refire the
+  // expensive fetch), and games where the search came back with no highlight.
+  const attempted = useRef(new Set())
+  const [noHighlight, setNoHighlight] = useState(() => new Set())
+
+  // GET /games/:id find-or-fetches the game AND runs findAndSaveHighlight — the
+  // same thing opening the game page does. It returns the game (with youtubeId),
+  // so we patch that straight into the cached matchup instead of refetching.
   const addGameM = useMutation({
-    mutationFn: (gameId) => api.get(`/games/${gameId}`, { timeout: 120000 }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["matchup", aId, bId] }),
+    mutationFn: (gameId) =>
+      api.get(`/games/${gameId}`, { timeout: 120000 }).then((r) => ({
+        gameId,
+        youtubeId: r.data?.youtubeId ?? null,
+      })),
+    onSuccess: ({ gameId, youtubeId }) => {
+      if (youtubeId) {
+        qc.setQueryData(["matchup", aId, bId], (old) =>
+          old
+            ? {
+                ...old,
+                games: old.games.map((g) =>
+                  g.gameId === gameId ? { ...g, youtubeId, onSite: true } : g
+                ),
+              }
+            : old
+        )
+      } else {
+        setNoHighlight((prev) => new Set(prev).add(gameId))
+      }
+    },
   })
+
+  const loadVideo = (gameId) => {
+    if (attempted.current.has(gameId)) return
+    attempted.current.add(gameId)
+    addGameM.mutate(gameId)
+  }
+
+  const retryVideo = (gameId) => {
+    setNoHighlight((prev) => {
+      const next = new Set(prev)
+      next.delete(gameId)
+      return next
+    })
+    addGameM.mutate(gameId)
+  }
 
   if (!hasPair) return <Picker />
 
@@ -544,8 +594,9 @@ export default function Matchup() {
                     players={players}
                     open={openId === g.gameId}
                     onToggle={() => setOpenId(openId === g.gameId ? null : g.gameId)}
-                    onLoadVideo={() => addGameM.mutate(g.gameId)}
-                    loadingVideo={addGameM.isPending && addGameM.variables === g.gameId}
+                    onLoadVideo={() => loadVideo(g.gameId)}
+                    onRetryVideo={() => retryVideo(g.gameId)}
+                    noHighlight={noHighlight.has(g.gameId)}
                   />
                 ))
               )}
