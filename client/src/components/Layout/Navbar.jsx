@@ -74,6 +74,9 @@ function NavUserMenu({ username }) {
           <NavLink to={`/user/${username}/diary`} onClick={() => setOpen(false)} className={itemClasses}>
             Diary
           </NavLink>
+          <NavLink to="/settings" onClick={() => setOpen(false)} className={itemClasses}>
+            Settings
+          </NavLink>
         </div>
       )}
     </div>
@@ -152,7 +155,7 @@ export default function Navbar() {
                   </button>
                   <button
                     onClick={() => openAuth("register")}
-                    className="text-sm font-semibold bg-accent-orange text-primary-dark px-3 py-1.5 rounded-md hover:bg-gold transition-colors whitespace-nowrap"
+                    className="text-sm font-semibold bg-accent-orange text-on-accent px-3 py-1.5 rounded-md hover:bg-gold transition-colors whitespace-nowrap"
                   >
                     Sign up
                   </button>
@@ -233,7 +236,7 @@ export default function Navbar() {
                     </button>
                     <button
                       onClick={() => openAuth("register")}
-                      className="mx-3 mt-1 text-center text-sm font-semibold bg-accent-orange text-primary-dark px-4 py-2 rounded-md hover:bg-gold"
+                      className="mx-3 mt-1 text-center text-sm font-semibold bg-accent-orange text-on-accent px-4 py-2 rounded-md hover:bg-gold"
                     >
                       Sign up
                     </button>

@@ -168,7 +168,7 @@ export default function ListEditor() {
           type="button"
           onClick={() => createList.mutate()}
           disabled={createList.isPending}
-          className="mt-6 rounded bg-gold px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-accent-orange disabled:opacity-60"
+          className="mt-6 rounded bg-gold px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-accent-orange disabled:opacity-60"
         >
           {createList.isPending ? "Creating…" : "Create list"}
         </button>
@@ -305,7 +305,7 @@ export default function ListEditor() {
           type="button"
           onClick={() => save.mutate()}
           disabled={save.isPending}
-          className="rounded-md bg-accent-orange px-6 py-2 text-sm font-semibold text-primary-dark transition-colors hover:bg-gold disabled:opacity-50"
+          className="rounded-md bg-accent-orange px-6 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-gold disabled:opacity-50"
         >
           {save.isPending ? "Saving…" : "Save list"}
         </button>

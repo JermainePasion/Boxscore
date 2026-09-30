@@ -187,7 +187,7 @@ export default function FavoriteGamePicker({ open, onClose, onConfirm, existingI
                 type="button"
                 onClick={() => onConfirm(pending)}
                 disabled={saving}
-                className="rounded bg-accent-orange px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold disabled:opacity-60"
+                className="rounded bg-accent-orange px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-gold disabled:opacity-60"
               >
                 {saving ? "Adding…" : "Add game"}
               </button>

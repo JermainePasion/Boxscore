@@ -143,7 +143,7 @@ function Picker() {
           type="button"
           disabled={!ready}
           onClick={() => navigate(`/matchup/${a.id}/${b.id}`)}
-          className="mt-6 w-full rounded-md bg-accent-orange py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-primary-dark transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-6 w-full rounded-md bg-accent-orange py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-on-accent transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
         >
           Compare
         </button>

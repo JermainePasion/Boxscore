@@ -15,6 +15,7 @@ model User {
   bio             String?
   avatarUrl       String?
   favoriteTeamId  Int?
+  theme           String   @default("dark") @db.VarChar(10)
   createdAt       DateTime @default(now())
 
   favoriteTeam    Team?    @relation(fields: [favoriteTeamId], references: [id])

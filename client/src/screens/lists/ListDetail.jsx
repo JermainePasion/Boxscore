@@ -204,7 +204,7 @@ function Composer({ onSubmit, pending }) {
           type="button"
           onClick={submit}
           disabled={pending || !value.trim()}
-          className="rounded bg-accent-orange px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded bg-accent-orange px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? "Posting..." : "Post"}
         </button>
@@ -396,7 +396,7 @@ export default function ListDetail() {
                 <button
                   type="button"
                   onClick={() => navigate(`/lists/edit?id=${list.id}`)}
-                  className="flex shrink-0 items-center gap-1.5 rounded bg-accent-orange px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
+                  className="flex shrink-0 items-center gap-1.5 rounded bg-accent-orange px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-gold"
                 >
                   <EditRoundedIcon sx={{ fontSize: 15 }} />
                   Edit
@@ -470,7 +470,7 @@ export default function ListDetail() {
             <button
               type="button"
               onClick={() => (isAuthed ? setReviewOpen(true) : setAuthOpen(true))}
-              className="mt-4 w-full rounded-md bg-accent-orange px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold"
+              className="mt-4 w-full rounded-md bg-accent-orange px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-gold"
             >
               {myReview ? "Edit review" : "Write a review"}
             </button>

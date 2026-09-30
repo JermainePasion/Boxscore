@@ -268,7 +268,7 @@ export default function GameDetail() {
         <p className="text-text-muted mb-4">Couldn't load this game right now.</p>
         <button
           onClick={() => refetch()}
-          className="px-5 py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors"
+          className="px-5 py-2 rounded-md bg-accent-orange text-on-accent font-semibold text-sm hover:bg-gold transition-colors"
         >
           Try again
         </button>
@@ -429,7 +429,7 @@ export default function GameDetail() {
 
             <button
               onClick={() => (isAuthed ? setReviewOpen(true) : setAuthOpen(true))}
-              className="w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors"
+              className="w-full py-2 rounded-md bg-accent-orange text-on-accent font-semibold text-sm hover:bg-gold transition-colors"
             >
               {myReview ? "Edit review" : "Review / Log"}
             </button>

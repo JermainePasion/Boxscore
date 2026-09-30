@@ -15,6 +15,7 @@ import Lists from "./screens/lists/Lists"
 import ListEditor from "./screens/lists/ListEditor"
 import ListDetail from "./screens/lists/ListDetail"
 import Matchup from "./screens/Matchup"
+import Settings from "./screens/Settings"
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route path="/profile" element={<MyProfile />} />
           <Route path="/user/:username" element={<Profile />} />
           <Route path="/user/:username/diary" element={<Diary />} />
+          <Route path="/settings" element={<Settings />} />
 
           <Route path="/watchlist" element={<Watchlist />} />
         </Route>

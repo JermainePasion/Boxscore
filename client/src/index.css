@@ -1,10 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* `light:` variant for the rare one-off tweak, e.g. `shadow-none light:shadow-sm` */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
 @theme {
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
 
-  --color-primary: #003049;      
+  --color-primary: #003049;
   --color-primary-light: #0a4a6e;
   --color-primary-dark: #001d2e;
 
@@ -12,14 +15,45 @@
   --color-accent-orange: #f77f00;
   --color-gold: #fcbf49;
 
-  --color-surface: #06222f;        
+  --color-surface: #06222f;
   --color-surface-hover: #0b3040;
-  --color-line: #12435c;          
+  --color-line: #12435c;
   --color-text-muted: #8fb3c4;
+
+  /* text on orange/gold buttons: stays dark in both themes */
+  --color-on-accent: #001d2e;
+  /* genuinely white text (play icons on video, initials on red avatars) */
+  --color-snow: #ffffff;
 }
+
+/*
+ * Light theme. `white` is the app's main text color, so it flips to navy ink here;
+ * text-white/75, bg-white/[0.02] hover tints, etc. follow automatically.
+ */
+[data-theme="light"] {
+  --color-primary: #e2ebf1;         /* navbar, table headers, chips */
+  --color-primary-light: #a9c3d3;   /* hover / focus borders */
+  --color-primary-dark: #f1f5f8;    /* page background */
+
+  --color-surface: #ffffff;         /* cards */
+  --color-surface-hover: #e9f0f4;
+  --color-line: #cbd9e2;
+  --color-text-muted: #4a6878;
+
+  --color-gold: #a86b00;            /* #fcbf49 is unreadable as text on white */
+  --color-white: #0b2230;           /* main text -> ink */
+}
+
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }  /* native inputs + scrollbars follow */
 
 body {
   @apply bg-primary-dark text-white font-sans antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
 }
 
 ::-webkit-scrollbar { width: 10px; }

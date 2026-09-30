@@ -184,7 +184,7 @@ export default function Diary() {
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-6 rounded bg-gold px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-accent-orange"
+          className="mt-6 rounded bg-gold px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-accent-orange"
         >
           Try again
         </button>

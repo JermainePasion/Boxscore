@@ -207,7 +207,7 @@ function GameCard({ game, rank, onRemove }) {
   return (
     <div className="relative">
       {rank ? (
-        <span className="absolute left-2 top-2 z-10 grid h-5 w-5 place-items-center rounded-sm bg-gold text-xs font-bold text-primary-dark">
+        <span className="absolute left-2 top-2 z-10 grid h-5 w-5 place-items-center rounded-sm bg-gold text-xs font-bold text-on-accent">
           {rank}
         </span>
       ) : null}
@@ -476,7 +476,7 @@ function BioEditor({ bio, onSave, onCancel, saving }) {
             type="button"
             onClick={() => onSave(draft)}
             disabled={saving}
-            className="rounded bg-gold px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-accent-orange disabled:opacity-60"
+            className="rounded bg-gold px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-accent-orange disabled:opacity-60"
           >
             {saving ? "Saving" : "Save bio"}
           </button>
@@ -588,7 +588,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-6 rounded bg-gold px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-accent-orange"
+            className="mt-6 rounded bg-gold px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-accent-orange"
           >
             Try again
           </button>
@@ -669,7 +669,7 @@ export default function Profile() {
                   className={`rounded px-6 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-colors disabled:opacity-60 ${
                     profile.isFollowing
                       ? "border border-line text-text-muted hover:border-accent-red hover:text-accent-red"
-                      : "bg-gold text-primary-dark hover:bg-accent-orange"
+                      : "bg-gold text-on-accent hover:bg-accent-orange"
                   }`}
                 >
                   {profile.isFollowing ? "Following" : "Follow"}

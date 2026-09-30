@@ -20,6 +20,7 @@ import commentRoutes from "./src/routes/commentRoutes.js"
 import pyramidReviewRoutes from "./src/routes/pyramidReviewRoutes.js"
 import listReviewRoutes from "./src/routes/listReviewRoutes.js"
 import matchupRoutes from  "./src/routes/matchupRoutes.js"
+import settingsRoutes from "./src/routes/settingsRoutes.js"
 
 const app = express()
 
@@ -41,6 +42,7 @@ app.use("/api/list-reviews", listReviewRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/users", followRoutes) 
 app.use("/api/feed", feedRoutes)
+app.use("/api/settings", settingsRoutes)
 
 app.use("/api/img", imgRoutes)
 

@@ -526,7 +526,7 @@ export default function PyramidEditor() {
             <button
               onClick={() => (isAuthed ? save.mutate() : setAuthOpen(true))}
               disabled={save.isPending || !active || filled === 0}
-              className="px-6 py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm
+              className="px-6 py-2 rounded-md bg-accent-orange text-on-accent font-semibold text-sm
                          hover:bg-gold transition-colors disabled:opacity-50"
             >
               {save.isPending ? "Saving…" : "Save pyramid"}

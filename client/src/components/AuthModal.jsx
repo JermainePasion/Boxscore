@@ -104,7 +104,7 @@ export default function AuthModal({ open, onClose, initialMode = "login" }) {
           <button
             onClick={submit}
             disabled={busy}
-            className="mt-1 w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors disabled:opacity-60"
+            className="mt-1 w-full py-2 rounded-md bg-accent-orange text-on-accent font-semibold text-sm hover:bg-gold transition-colors disabled:opacity-60"
           >
             {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>

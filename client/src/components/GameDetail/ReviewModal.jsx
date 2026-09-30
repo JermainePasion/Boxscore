@@ -125,7 +125,7 @@ export default function ReviewModal({ open, onClose, game, existing }) {
               save.mutate()
             }}
             disabled={save.isPending}
-            className="w-full py-2 rounded-md bg-accent-orange text-primary-dark font-semibold text-sm hover:bg-gold transition-colors disabled:opacity-60"
+            className="w-full py-2 rounded-md bg-accent-orange text-on-accent font-semibold text-sm hover:bg-gold transition-colors disabled:opacity-60"
           >
             {save.isPending ? "Saving…" : existing ? "Update review" : "Post review"}
           </button>

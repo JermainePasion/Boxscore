@@ -75,7 +75,7 @@ export default function PyramidReviewModal({ open, onClose, existing, onSubmit, 
             type="button"
             onClick={save}
             disabled={!canSave}
-            className="rounded bg-accent-orange px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-primary-dark transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded bg-accent-orange px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-on-accent transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? "Saving…" : "Save review"}
           </button>
