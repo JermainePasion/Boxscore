@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom"
 import TeamLogoImg from "./TeamLogo"
 import PlayerHeadshot from "./PlayerHeadshot"
+import { useSettings } from "../context/SettingsContext"
 
 function LeaderRow({ label, away, home, awayTeamId, homeTeamId, season }) {
   return (
@@ -31,28 +32,31 @@ function LeaderRow({ label, away, home, awayTeamId, homeTeamId, season }) {
 }
 
 export default function GameCard({ game }) {
+  // hooks must run before any early return
+  const { settings } = useSettings()
+  const hideScores = settings.hideScores
 
   if (game.stub) {
-  return (
-    <Link
-      to={`/games/${game.id}`}
-      className="group/card block rounded-xl overflow-hidden border border-line bg-surface
-                 hover:border-gold transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-black/40"
-    >
-      <div className="aspect-[3/4] flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <span className="text-sm font-semibold text-white">{game.title}</span>
-        <span className="text-xs text-text-muted">Tap to load game data</span>
-      </div>
-      <div className="p-3 border-t border-line">
-        <p className="text-xs text-text-muted">
-          {game.date && new Date(game.date).toLocaleDateString("en-US", {
-            day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
-          })}
-        </p>
-      </div>
-    </Link>
-  )
-}
+    return (
+      <Link
+        to={`/games/${game.id}`}
+        className="group/card block rounded-xl overflow-hidden border border-line bg-surface
+                   hover:border-gold transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-black/40"
+      >
+        <div className="aspect-[3/4] flex flex-col items-center justify-center gap-2 px-4 text-center">
+          <span className="text-sm font-semibold text-white">{game.title}</span>
+          <span className="text-xs text-text-muted">Tap to load game data</span>
+        </div>
+        <div className="p-3 border-t border-line">
+          <p className="text-xs text-text-muted">
+            {game.date && new Date(game.date).toLocaleDateString("en-US", {
+              day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+            })}
+          </p>
+        </div>
+      </Link>
+    )
+  }
 
   const gameDate = game.date
     ? new Date(game.date).toLocaleDateString("en-US", {
@@ -61,6 +65,10 @@ export default function GameCard({ game }) {
     : null
 
   const hasLeaders = game.home && game.away && (game.home.total > 0 || game.away.total > 0)
+
+  // Hidden: blur AND drop the gold winner color, which would give the result away.
+  const scoreClass = (winning) =>
+    hideScores ? "text-white blur-md select-none" : winning ? "text-gold" : "text-white"
 
   return (
     <Link
@@ -116,13 +124,16 @@ export default function GameCard({ game }) {
                 awayTeamId={game.awayTeamId} homeTeamId={game.homeTeamId} season={game.season} />
             </div>
 
-            {/* total score */}
-            <div className="border-t border-line pt-2 flex items-center justify-center gap-3">
-              <span className={`text-xl font-bold ${game.away.total > game.home.total ? "text-gold" : "text-white"}`}>
+            {/* total score (blurred when the spoiler block is on) */}
+            <div
+              className="border-t border-line pt-2 flex items-center justify-center gap-3"
+              title={hideScores ? "Score hidden. You can change this in Settings." : undefined}
+            >
+              <span className={`text-xl font-bold transition ${scoreClass(game.away.total > game.home.total)}`}>
                 {game.away.total}
               </span>
               <span className="text-text-muted text-xs">—</span>
-              <span className={`text-xl font-bold ${game.home.total > game.away.total ? "text-gold" : "text-white"}`}>
+              <span className={`text-xl font-bold transition ${scoreClass(game.home.total > game.away.total)}`}>
                 {game.home.total}
               </span>
             </div>

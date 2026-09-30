@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useTheme } from "../context/ThemeContext"
+import { useSettings } from "../context/SettingsContext"
 import AuthModal from "../components/AuthModal"
 
 function SectionRule({ label }) {
@@ -32,8 +32,22 @@ function Switch({ checked, onChange, labelledBy }) {
   )
 }
 
+function SettingRow({ id, title, description, checked, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-6">
+      <div className="min-w-0">
+        <div id={id} className="text-sm font-semibold text-white">
+          {title}
+        </div>
+        <p className="mt-0.5 text-xs text-text-muted">{description}</p>
+      </div>
+      <Switch checked={checked} onChange={onChange} labelledBy={id} />
+    </div>
+  )
+}
+
 export default function Settings() {
-  const { isDark, setTheme, syncedToAccount, saveFailed } = useTheme()
+  const { settings, updateSetting, syncedToAccount, saveFailed, retrySave } = useSettings()
   const [authOpen, setAuthOpen] = useState(false)
 
   return (
@@ -42,47 +56,56 @@ export default function Settings() {
         <h1 className="text-3xl font-bold tracking-wide text-white md:text-4xl">SETTINGS</h1>
       </div>
 
-      <section>
+      <section className="mb-10">
         <SectionRule label="Appearance" />
-
         <div className="rounded-lg border border-line bg-surface p-5">
-          <div className="flex items-center justify-between gap-6">
-            <div className="min-w-0">
-              <div id="dark-mode-label" className="text-sm font-semibold text-white">
-                Dark mode
-              </div>
-              <p className="mt-0.5 text-xs text-text-muted">Turn off to use the light theme.</p>
-            </div>
-            <Switch
-              checked={isDark}
-              onChange={(on) => setTheme(on ? "dark" : "light")}
-              labelledBy="dark-mode-label"
-            />
-          </div>
-
-          <p className="mt-4 border-t border-line pt-3 text-[11px] text-text-muted">
-            {saveFailed ? (
-              <span className="text-accent-red">
-                Couldn't save to your account. Your choice still applies on this device.
-              </span>
-            ) : syncedToAccount ? (
-              "Saved to your account, so it follows you to any device."
-            ) : (
-              <>
-                Saved on this device.{" "}
-                <button
-                  type="button"
-                  onClick={() => setAuthOpen(true)}
-                  className="font-semibold text-gold hover:underline"
-                >
-                  Sign in
-                </button>{" "}
-                to keep it across devices.
-              </>
-            )}
-          </p>
+          <SettingRow
+            id="setting-dark-mode"
+            title="Dark mode"
+            description="Turn off to use the light theme."
+            checked={settings.theme === "dark"}
+            onChange={(on) => updateSetting("theme", on ? "dark" : "light")}
+          />
         </div>
       </section>
+
+      <section>
+        <SectionRule label="Spoilers" />
+        <div className="rounded-lg border border-line bg-surface p-5">
+          <SettingRow
+            id="setting-hide-scores"
+            title="Hide scores on game cards"
+            description="Blurs the final score when you hover a game card, so you can watch the game first."
+            checked={settings.hideScores}
+            onChange={(on) => updateSetting("hideScores", on)}
+          />
+        </div>
+      </section>
+
+      <p className="mt-6 text-center text-[11px] text-text-muted">
+        {saveFailed ? (
+          <span className="text-accent-red">
+            Couldn't save to your account, so this change won't stick after a reload.{" "}
+            <button type="button" onClick={retrySave} className="font-semibold underline hover:no-underline">
+              Try again
+            </button>
+          </span>
+        ) : syncedToAccount ? (
+          "Settings are saved to your account, so they follow you to any device."
+        ) : (
+          <>
+            Settings are saved on this device.{" "}
+            <button
+              type="button"
+              onClick={() => setAuthOpen(true)}
+              className="font-semibold text-gold hover:underline"
+            >
+              Sign in
+            </button>{" "}
+            to keep them across devices.
+          </>
+        )}
+      </p>
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />
     </div>
