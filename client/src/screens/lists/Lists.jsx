@@ -143,9 +143,6 @@ export default function Lists() {
     <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold tracking-wide text-white md:text-4xl">LISTS</h1>
-        <p className="mt-2 text-sm text-text-muted">
-          Collect games any way you like — ranked or not.
-        </p>
       </div>
 
       {/* your lists */}

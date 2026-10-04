@@ -162,9 +162,6 @@ export default function Pyramid() {
         <h1 className="text-3xl font-bold tracking-wide text-white md:text-4xl">
           G.O.A.T. PYRAMIDS
         </h1>
-        <p className="mt-2 text-sm text-text-muted">
-          Build your ranking, and see how everyone else stacks the greats.
-        </p>
       </div>
 
       {/* your pyramids */}
