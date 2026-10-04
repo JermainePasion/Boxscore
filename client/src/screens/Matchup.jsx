@@ -5,6 +5,7 @@ import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded"
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded"
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded"
 import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded"
+import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded"
 
 import { api } from "../lib/api"
 import PlayerHeadshot from "../components/PlayerHeadshot"
@@ -35,7 +36,55 @@ const SIDE = {
   b: { bar: "bg-[#5aa9e6]", text: "text-[#5aa9e6]" },
 }
 
-/* ---------- player search (picker) ---------- */
+function InfoTip({ label = "How it works", children }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  // close on outside tap / Escape
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    const onKey = (e) => e.key === "Escape" && setOpen(false)
+    document.addEventListener("pointerdown", onDown)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onDown)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  return (
+    <span ref={ref} className="group relative inline-flex">
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex transition-colors focus:outline-none focus-visible:text-gold ${
+          open ? "text-gold" : "text-text-muted hover:text-gold"
+        }`}
+      >
+        <HelpOutlineRoundedIcon sx={{ fontSize: 20 }} />
+      </button>
+
+      {/* pt-2 bridges the gap so the cursor can move into the panel without it closing */}
+      <span
+        role="tooltip"
+        className={`absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-2 transition-opacity duration-150 ${
+          open
+            ? "visible opacity-100"
+            : "invisible opacity-0 [@media(hover:hover)]:group-hover:visible [@media(hover:hover)]:group-hover:opacity-100"
+        }`}
+      >
+        <span className="block rounded-md border border-line bg-surface px-4 py-3 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-text-muted shadow-xl shadow-black/40">
+          {children}
+        </span>
+      </span>
+    </span>
+  )
+}
 
 function PlayerSearch({ label, selected, onSelect }) {
   const [q, setQ] = useState("")
@@ -123,9 +172,19 @@ function Picker() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-6">
-      <div className="mb-8 text-center">
+      <div className="mb-8 flex items-center justify-center gap-2">
         <h1 className="text-3xl font-bold tracking-wide text-white md:text-4xl">MATCHUPS</h1>
-        <p className="mt-2 text-sm text-text-muted">Pick two players. We'll find every time they faced off.</p>
+        <InfoTip>
+          <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-white">
+            How it works
+          </span>
+          <ol className="list-decimal space-y-1 pl-4">
+            <li>Search and pick two different players.</li>
+            <li>Hit <span className="text-white">Compare</span> to see every game they've played against each other.</li>
+            <li>Open any game to see both stat lines and the highlights.</li>
+          </ol>
+          <span className="mt-2 block text-[11px]">The first load for a pair can take 10–20 seconds.</span>
+        </InfoTip>
       </div>
 
       <div className="rounded-lg border border-line bg-surface p-5 sm:p-7">
@@ -450,7 +509,7 @@ export default function Matchup() {
           <div className="h-64 rounded-lg bg-surface" />
         </div>
         <p className="mt-4 text-center text-sm text-text-muted">
-          Pulling every meeting from the NBA — the first load for a pair can take 10–20 seconds.
+          Pulling every meeting from the NBA. The first load for a pair can take 10–20 seconds.
         </p>
       </div>
     )
