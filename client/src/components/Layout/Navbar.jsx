@@ -107,7 +107,8 @@ export default function Navbar() {
           <div className="flex items-center h-16 gap-4">
 
             <Link to="/" className="flex items-center gap-2 shrink-0">
-              <SportsBasketballRoundedIcon sx={{ fontSize: 34 }} className="text-accent-orange" />
+              <img src="/logo2.png" alt="BoxScore logo" className="h-11 w-11 object-contain light:hidden" />
+              <img src="/logo.png" alt="BoxScore logo" className="hidden h-9 w-9 object-contain light:block" />
               <span className="text-xl tracking-tight text-gold">BoxScore</span>
             </Link>
 
