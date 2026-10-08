@@ -9,6 +9,8 @@ lerna-debug.log*
 
 .env
 
+key.txt
+
 node_modules
 dist
 dist-ssr

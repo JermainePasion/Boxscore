@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef } from "react"
+import { headshotUrl, seasonHeadshotUrl } from "../lib/nbaImages"
 
 const FALLBACK = "/player-silhouette.png"
-const API_BASE = "http://localhost:5000"
 
 export default function PlayerHeadshot({ playerId, teamId, season, className }) {
   const candidates = [
-    season && teamId && playerId
-      ? `${API_BASE}/api/img/headshot/${teamId}/${season}/${playerId}`
-      : null,
-    playerId ? `${API_BASE}/api/img/headshot/${playerId}` : null,
+    season && teamId && playerId ? seasonHeadshotUrl(teamId, season, playerId) : null,
+    playerId ? headshotUrl(playerId) : null,
     FALLBACK,
   ].filter(Boolean)
 
@@ -28,7 +26,7 @@ export default function PlayerHeadshot({ playerId, teamId, season, className }) 
     const img = imgRef.current
     if (!img) return
     if (img.complete) {
-      // naturalWidth 0 = it completed by failing → advance the fallback chain
+      // naturalWidth 0 = it completed by failing -> advance the fallback chain
       if (img.naturalWidth === 0) {
         setLoaded(false)
         setIdx(i => Math.min(i + 1, candidates.length - 1))
@@ -52,6 +50,7 @@ export default function PlayerHeadshot({ playerId, teamId, season, className }) 
         src={candidates[idx]}
         alt=""
         loading="lazy"
+        referrerPolicy="no-referrer"
         className={`w-full h-full object-cover object-top transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
         onLoad={() => setLoaded(true)}
         onError={() => {

@@ -1,5 +1,3 @@
-const API_BASE = "http://localhost:5000"
-
 export const TEAM_COLORS = {
   1610612737: "#E03A3E", // Hawks
   1610612738: "#007A33", // Celtics
@@ -46,4 +44,4 @@ export const ABBR_TO_ID = {
   GOS: 1610612744, UTH: 1610612762, NJN: 1610612751, SEA: 1610612760,
 }
 
-export const teamLogo = (teamId) => `${API_BASE}/api/img/logo/${teamId}`
+export const teamLogo = (teamId) => `/logos/${teamId}.svg`

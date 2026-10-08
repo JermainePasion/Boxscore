@@ -2,8 +2,7 @@ import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "../../lib/api"
 import TeamLogoImg from "../TeamLogo"
-
-const API_BASE = "http://localhost:5000"
+import { teamLogo } from "../../utils/teamColors"
 
 // Court units: tenths of feet. Full court 940 x 500. Hoop center 52.5 from each baseline.
 const W = 940, H = 500, HOOP = 52.5
@@ -93,7 +92,7 @@ function CourtLines({ homeTeamId }) {
         <circle cx={W / 2} cy={H / 2} r="80" />
       </clipPath>
       <image
-        href={`${API_BASE}/api/img/logo/${homeTeamId}`}
+        href={teamLogo(homeTeamId)}
         x={W / 2 - 60}
         y={H / 2 - 60}
         width="120"
