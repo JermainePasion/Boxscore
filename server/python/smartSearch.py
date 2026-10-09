@@ -4,6 +4,7 @@ import re
 import unicodedata
 from nba_api.stats.endpoints import leaguegamefinder
 from nba_api.stats.static import players, teams
+import nba_guard
 
 MONTHS = {m.lower(): i for i, m in enumerate(
     ["January","February","March","April","May","June",

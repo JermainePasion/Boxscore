@@ -2,6 +2,7 @@ from nba_api.stats.endpoints import shotchartdetail
 import json
 import sys
 import time
+import nba_guard
 
 
 def get_shots(game_id):

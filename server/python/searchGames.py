@@ -1,6 +1,7 @@
 from nba_api.stats.endpoints import leaguegamefinder
 import json
 import sys
+import nba_guard
 from teamMap import TEAM_MAP
 
 def search_games(query):

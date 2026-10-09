@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from "react"
-import { headshotUrl, seasonHeadshotUrl } from "../lib/nbaImages"
+import { API_URL } from "../lib/api"
 
 const FALLBACK = "/player-silhouette.png"
 
+// Headshots come through our own server: the NBA CDN won't serve them to other
+// websites, so the server fetches each one once and keeps it on disk.
 export default function PlayerHeadshot({ playerId, teamId, season, className }) {
   const candidates = [
-    season && teamId && playerId ? seasonHeadshotUrl(teamId, season, playerId) : null,
-    playerId ? headshotUrl(playerId) : null,
+    season && teamId && playerId
+      ? `${API_URL}/api/img/headshot/${teamId}/${season}/${playerId}`
+      : null,
+    playerId ? `${API_URL}/api/img/headshot/${playerId}` : null,
     FALLBACK,
   ].filter(Boolean)
 
@@ -50,7 +54,6 @@ export default function PlayerHeadshot({ playerId, teamId, season, className }) 
         src={candidates[idx]}
         alt=""
         loading="lazy"
-        referrerPolicy="no-referrer"
         className={`w-full h-full object-cover object-top transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
         onLoad={() => setLoaded(true)}
         onError={() => {

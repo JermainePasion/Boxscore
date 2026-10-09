@@ -2,6 +2,7 @@
 import sys
 import os
 import json
+import nba_guard
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(_HERE, "champions.json"), encoding="utf-8") as _f:

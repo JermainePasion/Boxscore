@@ -1,6 +1,7 @@
 import sys
 import json
 import time
+import nba_guard
 
 STAT_KEYS = ("pts", "reb", "ast", "stl", "blk")
 
