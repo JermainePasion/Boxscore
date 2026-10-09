@@ -164,7 +164,7 @@ const saveNbaGame = (data, { update = {}, create = {}, include } = {}) => {
 }
 
 /** Fetch one game from the NBA and save it. */
-const fetchAndSaveGame = async (gameId, options) => {
+export const fetchAndSaveGame = async (gameId, options) => {
   const data = await runNbaScript("fetchSingleGame.py", [gameId], { timeout: 120000 })
   if (!data?.homeTeam?.id || !data?.awayTeam?.id) {
     throw new NbaUnavailableError(data?.reason || "The NBA has no data for this game yet")
