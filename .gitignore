@@ -11,6 +11,10 @@ lerna-debug.log*
 
 key.txt
 
+cache/
+
+
+
 node_modules
 dist
 dist-ssr

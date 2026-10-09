@@ -1,4 +1,6 @@
 const cache = new Map()
+const inFlight = new Map()
+const DEBUG = process.env.CACHE_DEBUG === "1"
 
 /**
  * Get a value from the cache, or compute and store it if not present/expired.
@@ -9,15 +11,21 @@ const cache = new Map()
 export const cached = async (key, ttlMs, fn) => {
   const hit = cache.get(key)
   if (hit && hit.expiresAt > Date.now()) {
-    console.log(`CACHE HIT: ${key}`)
+    if (DEBUG) console.log(`CACHE HIT: ${key}`)
     return hit.value
   }
-  console.log(`CACHE MISS: ${key}`)
-  const value = await fn()
-  cache.set(key, { value, expiresAt: Date.now() + ttlMs })
-  return value
-}
+  if (inFlight.has(key)) return inFlight.get(key) // someone's already fetching it
+  if (DEBUG) console.log(`CACHE MISS: ${key}`)
 
+  const run = (async () => {
+    const value = await fn()
+    cache.set(key, { value, expiresAt: Date.now() + ttlMs })
+    return value
+  })().finally(() => inFlight.delete(key))
+
+  inFlight.set(key, run)
+  return run
+}
 /**
  * Manually invalidate a specific key (e.g., after mutation).
  */
@@ -45,7 +53,7 @@ const sweep = () => {
     if (entry.expiresAt <= now) cache.delete(key)
   }
 }
-setInterval(sweep, 10 * 60 * 1000)
+setInterval(sweep, 10 * 60 * 1000).unref()
 
 /**
  * Optional: current cache stats for debugging
