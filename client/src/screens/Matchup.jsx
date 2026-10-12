@@ -36,6 +36,13 @@ const SIDE = {
   b: { bar: "bg-[#5aa9e6]", text: "text-[#5aa9e6]" },
 }
 
+/*
+ * The tooltip panel is 18rem wide. Centered on the icon it hung past the right
+ * edge of small screens, and even while invisible it still widened the page.
+ * On mobile the wrapper is `static`, so the panel positions against the nearest
+ * `relative` ancestor (the heading row) and stays inside the content width.
+ * From `sm` up it's centered on the icon as before.
+ */
 function InfoTip({ label = "How it works", children }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -56,7 +63,7 @@ function InfoTip({ label = "How it works", children }) {
   }, [open])
 
   return (
-    <span ref={ref} className="group relative inline-flex">
+    <span ref={ref} className="group inline-flex sm:relative">
       <button
         type="button"
         aria-label={label}
@@ -72,7 +79,9 @@ function InfoTip({ label = "How it works", children }) {
       {/* pt-2 bridges the gap so the cursor can move into the panel without it closing */}
       <span
         role="tooltip"
-        className={`absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-2 transition-opacity duration-150 ${
+        className={`absolute top-full z-30 pt-2 transition-opacity duration-150
+          inset-x-0 mx-auto w-full max-w-72
+          sm:inset-x-auto sm:left-1/2 sm:mx-0 sm:w-72 sm:max-w-none sm:-translate-x-1/2 ${
           open
             ? "visible opacity-100"
             : "invisible opacity-0 [@media(hover:hover)]:group-hover:visible [@media(hover:hover)]:group-hover:opacity-100"
@@ -104,7 +113,7 @@ function PlayerSearch({ label, selected, onSelect }) {
 
   if (selected) {
     return (
-      <div>
+      <div className="min-w-0">
         <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</div>
         <div className="flex items-center gap-3 rounded-md border border-line bg-surface p-3">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary">
@@ -114,7 +123,7 @@ function PlayerSearch({ label, selected, onSelect }) {
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="text-xs text-text-muted transition-colors hover:text-accent-red"
+            className="shrink-0 text-xs text-text-muted transition-colors hover:text-accent-red"
           >
             Change
           </button>
@@ -125,13 +134,13 @@ function PlayerSearch({ label, selected, onSelect }) {
 
   const list = results.data ?? []
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</div>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search a player…"
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-white placeholder:text-text-muted focus:border-primary-light focus:outline-none"
+        className="w-full min-w-0 rounded-md border border-line bg-surface px-3 py-2 text-sm text-white placeholder:text-text-muted focus:border-primary-light focus:outline-none"
       />
       {debounced.length >= 2 ? (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-xl shadow-black/40">
@@ -153,8 +162,8 @@ function PlayerSearch({ label, selected, onSelect }) {
                 <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-primary">
                   <PlayerHeadshot playerId={p.id} className="h-full w-full" />
                 </div>
-                <span className="truncate text-sm text-white">{p.name}</span>
-                {p.position ? <span className="ml-auto text-[10px] text-text-muted">{p.position}</span> : null}
+                <span className="min-w-0 truncate text-sm text-white">{p.name}</span>
+                {p.position ? <span className="ml-auto shrink-0 text-[10px] text-text-muted">{p.position}</span> : null}
               </button>
             ))
           )}
@@ -171,8 +180,9 @@ function Picker() {
   const ready = a && b && a.id !== b.id
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-6">
-      <div className="mb-8 flex items-center justify-center gap-2">
+    <div className="mx-auto max-w-3xl overflow-x-clip px-4 pb-24 sm:px-6">
+      {/* `relative` here is the anchor for the InfoTip panel on mobile */}
+      <div className="relative mb-8 flex items-center justify-center gap-2">
         <h1 className="text-3xl font-bold tracking-wide text-white md:text-4xl">MATCHUPS</h1>
         <InfoTip>
           <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-white">
@@ -187,8 +197,8 @@ function Picker() {
         </InfoTip>
       </div>
 
-      <div className="rounded-lg border border-line bg-surface p-5 sm:p-7">
-        <div className="grid items-start gap-4 sm:grid-cols-[1fr_auto_1fr]">
+      <div className="rounded-lg border border-line bg-surface p-4 sm:p-7">
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
           <PlayerSearch label="Player one" selected={a} onSelect={setA} />
           <div className="hidden pt-7 text-center text-2xl font-black text-accent-red sm:block">VS</div>
           <PlayerSearch label="Player two" selected={b} onSelect={setB} />
@@ -216,8 +226,8 @@ function Picker() {
 function PlayerHero({ player, team, side, align }) {
   const right = align === "right"
   return (
-    <div className={`flex items-center gap-4 ${right ? "flex-row-reverse text-right" : ""}`}>
-      <div className={`h-20 w-20 shrink-0 overflow-hidden rounded-full bg-primary ring-2 sm:h-24 sm:w-24 ${side === "a" ? "ring-accent-orange" : "ring-[#5aa9e6]"}`}>
+    <div className={`flex min-w-0 items-center gap-3 sm:gap-4 ${right ? "flex-row-reverse text-right" : ""}`}>
+      <div className={`h-16 w-16 shrink-0 overflow-hidden rounded-full bg-primary ring-2 sm:h-24 sm:w-24 ${side === "a" ? "ring-accent-orange" : "ring-[#5aa9e6]"}`}>
         <PlayerHeadshot playerId={player.id} className="h-full w-full" />
       </div>
       <div className="min-w-0">
@@ -232,11 +242,11 @@ function StatBar({ label, a, b }) {
   const total = (a ?? 0) + (b ?? 0)
   const aPct = total ? ((a ?? 0) / total) * 100 : 50
   return (
-    <div className="grid grid-cols-[3.25rem_1fr_3.25rem] items-center gap-3">
+    <div className="grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-center gap-2 sm:grid-cols-[3.25rem_minmax(0,1fr)_3.25rem] sm:gap-3">
       <span className={`text-right text-sm font-semibold tabular-nums ${a > b ? SIDE.a.text : "text-white"}`}>
         {fmt(a)}
       </span>
-      <div>
+      <div className="min-w-0">
         <div className="mb-1 text-center text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</div>
         <div className="flex h-2 overflow-hidden rounded-full bg-primary">
           <div className={SIDE.a.bar} style={{ width: `${aPct}%` }} />
@@ -281,6 +291,7 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, onRetryVideo, noH
   const [playing, setPlaying] = useState(false)
   const homeAway = game.home === "a" ? "vs." : "@"
   const winner = game.a.wl === "W" ? "a" : game.b.wl === "W" ? "b" : null
+  const playoffs = game.seasonType === "playoffs"
 
   // collapsing the row also stops playback, so reopening shows the poster again
   useEffect(() => {
@@ -298,22 +309,30 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, onRetryVideo, noH
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-white/[0.02]"
+        aria-expanded={open}
+        className="flex w-full min-w-0 items-center gap-2 px-2 py-3 text-left transition-colors hover:bg-white/[0.02] sm:gap-3"
       >
-        <div className="w-24 shrink-0">
-          <div className="text-xs font-medium text-white">{shortDate(game.date)}</div>
-          <div className="text-[10px] text-text-muted">
+        {/* date + season */}
+        <div className="w-[4.75rem] shrink-0 sm:w-24">
+          <div className="truncate text-xs font-medium text-white">{shortDate(game.date)}</div>
+          <div className="truncate text-[10px] text-text-muted">
             {game.seasonLabel}
-            {game.seasonType === "playoffs" ? " · Playoffs" : ""}
+            {playoffs ? (
+              <>
+                <span className="sm:hidden"> · PO</span>
+                <span className="hidden sm:inline"> · Playoffs</span>
+              </>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          <TeamLogo teamId={game.a.teamId} className="h-5 w-5 object-contain" />
-          <span className="text-xs text-text-muted">{game.a.teamAbbr}</span>
+        {/* teams — abbreviations drop on the narrowest phones, logos stay */}
+        <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
+          <TeamLogo teamId={game.a.teamId} className="h-5 w-5 shrink-0 object-contain" />
+          <span className="hidden text-xs text-text-muted min-[400px]:inline">{game.a.teamAbbr}</span>
           <span className="text-[10px] text-text-muted">{homeAway}</span>
-          <span className="text-xs text-text-muted">{game.b.teamAbbr}</span>
-          <TeamLogo teamId={game.b.teamId} className="h-5 w-5 object-contain" />
+          <span className="hidden text-xs text-text-muted min-[400px]:inline">{game.b.teamAbbr}</span>
+          <TeamLogo teamId={game.b.teamId} className="h-5 w-5 shrink-0 object-contain" />
         </div>
 
         <div className="hidden min-w-0 flex-1 truncate text-xs text-text-muted sm:block">
@@ -322,7 +341,7 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, onRetryVideo, noH
           <span className={SIDE.b.text}>{fmt(game.b.pts)}/{fmt(game.b.reb)}/{fmt(game.b.ast)}</span>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           {winner ? (
             <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${winner === "a" ? "bg-accent-orange/20 text-accent-orange" : "bg-[#5aa9e6]/20 text-[#5aa9e6]"}`}>
               {winner === "a" ? game.a.teamAbbr : game.b.teamAbbr} W
@@ -340,7 +359,7 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, onRetryVideo, noH
         <div className="px-2 pb-5 pt-1">
           {/* both stat lines */}
           <div className="overflow-hidden rounded-md border border-line">
-            <div className="grid grid-cols-[1fr_4rem_1fr] bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-wider">
+            <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)] bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-wider sm:grid-cols-[minmax(0,1fr)_4rem_minmax(0,1fr)]">
               <span className={`truncate ${SIDE.a.text}`}>{players.a.name}</span>
               <span />
               <span className={`truncate text-right ${SIDE.b.text}`}>{players.b.name}</span>
@@ -350,7 +369,10 @@ function GameRow({ game, players, open, onToggle, onLoadVideo, onRetryVideo, noH
               const bv = game.b[key]
               const numeric = typeof av === "number" && typeof bv === "number"
               return (
-                <div key={key} className="grid grid-cols-[1fr_4rem_1fr] border-t border-line/60 px-3 py-1.5 text-sm">
+                <div
+                  key={key}
+                  className="grid grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)] border-t border-line/60 px-3 py-1.5 text-sm sm:grid-cols-[minmax(0,1fr)_4rem_minmax(0,1fr)]"
+                >
                   <span className={`tabular-nums ${numeric && av > bv ? "font-semibold text-white" : "text-text-muted"}`}>{f(av)}</span>
                   <span className="text-center text-[10px] uppercase tracking-wider text-text-muted">{label}</span>
                   <span className={`text-right tabular-nums ${numeric && bv > av ? "font-semibold text-white" : "text-text-muted"}`}>{f(bv)}</span>
@@ -519,7 +541,7 @@ export default function Matchup() {
     return (
       <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6">
         <p className="text-sm text-text-muted">Couldn't build this matchup.</p>
-        <div className="mt-3 flex justify-center gap-4 text-sm">
+        <div className="mt-3 flex flex-wrap justify-center gap-4 text-sm">
           <button type="button" onClick={() => q.refetch()} className="font-semibold text-gold hover:underline">
             Try again
           </button>
@@ -550,22 +572,30 @@ export default function Matchup() {
   }
   const latestTeam = (side) => games[0]?.[side]?.teamAbbr
 
-  const FilterTab = ({ id, label, count }) => (
+  // `label` is the full text; `short` (optional) replaces it below `sm`
+  const FilterTab = ({ id, label, short, count }) => (
     <button
       type="button"
       onClick={() => setFilter(id)}
-      className={`text-xs font-semibold uppercase tracking-[0.12em] transition-colors ${
+      className={`whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] transition-colors ${
         filter === id ? "text-gold" : "text-text-muted hover:text-white"
       }`}
     >
-      {label}
+      {short ? (
+        <>
+          <span className="sm:hidden">{short}</span>
+          <span className="hidden sm:inline">{label}</span>
+        </>
+      ) : (
+        label
+      )}
       {count != null ? <span className="ml-1 text-text-muted">({count})</span> : null}
     </button>
   )
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="mx-auto max-w-5xl overflow-x-clip px-4 pb-24 sm:px-6">
+      <div className="mb-5 flex items-center justify-between gap-4">
         <Link
           to="/matchup"
           className="flex items-center gap-1 text-xs font-medium uppercase tracking-[0.1em] text-text-muted transition-colors hover:text-gold"
@@ -585,11 +615,11 @@ export default function Matchup() {
       </div>
 
       {/* hero */}
-      <div className="rounded-lg border border-line bg-surface p-5 sm:p-7">
-        <div className="grid items-center gap-4 sm:grid-cols-[1fr_auto_1fr]">
+      <div className="rounded-lg border border-line bg-surface p-4 sm:p-7">
+        <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-4">
           <PlayerHero player={players.a} team={latestTeam("a")} side="a" />
           <div className="text-center">
-            <div className="text-3xl font-black text-accent-red sm:text-4xl">VS</div>
+            <div className="text-2xl font-black text-accent-red sm:text-4xl">VS</div>
             <div className="mt-1 text-[11px] text-text-muted">
               {data.meetings} meeting{data.meetings === 1 ? "" : "s"}
             </div>
@@ -609,16 +639,16 @@ export default function Matchup() {
         </p>
       ) : (
         <>
-          {/* filter */}
-          <div className="mt-6 flex items-center gap-5">
+          {/* filter — wraps instead of pushing past the screen edge */}
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
             <FilterTab id="all" label="All" count={games.length} />
-            <FilterTab id="regular" label="Regular season" count={data.regular} />
+            <FilterTab id="regular" label="Regular season" short="Regular" count={data.regular} />
             <FilterTab id="playoffs" label="Playoffs" count={data.playoffs} />
           </div>
 
           {/* tale of the tape */}
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_260px]">
-            <div className="rounded-lg border border-line bg-surface p-5">
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="min-w-0 rounded-lg border border-line bg-surface p-4 sm:p-5">
               <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
                 Averages in these meetings
               </div>
@@ -628,7 +658,7 @@ export default function Matchup() {
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <Tally label="Team record" a={record.a} b={record.b} />
               <Tally label="Better night" a={duels.a} b={duels.b} tie={duels.tie} />
             </div>
@@ -640,9 +670,9 @@ export default function Matchup() {
               <h2 className="shrink-0 text-sm font-semibold uppercase tracking-widest text-white">
                 Every meeting {n !== games.length ? `(${n})` : ""}
               </h2>
-              <div className="h-px flex-1 bg-accent-red" />
+              <div className="h-px min-w-0 flex-1 bg-accent-red" />
             </div>
-            <div className="rounded-lg border border-line bg-surface">
+            <div className="overflow-hidden rounded-lg border border-line bg-surface">
               {visible.length === 0 ? (
                 <p className="py-8 text-center text-sm text-text-muted">No games in this filter.</p>
               ) : (
