@@ -65,14 +65,14 @@ function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editin
             season={player.headshotSeason}
             className="w-full h-full"
           />
-          <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] text-white text-center truncate px-0.5 py-0.5">
+          <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] text-snow text-center truncate px-0.5 py-0.5">
             {player.name.split(" ").slice(-1)[0]}
           </span>
           {editing && (
             <button
               onClick={e => { e.stopPropagation(); onRemove() }}
               className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity
-                         flex items-center justify-center text-white"
+                        flex items-center justify-center text-snow"
               aria-label={`Remove ${player.name}`}
             >
               <CloseRoundedIcon sx={{ fontSize: 18 }} />
@@ -119,7 +119,7 @@ function PoolPlayer({ player, onDragStart, onClick, selected, used }) {
         className="w-full h-full"
       />
       {player.variantLabel && (
-        <span className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] leading-tight text-white text-center truncate px-0.5">
+        <span className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] leading-tight text-snow text-center truncate px-0.5">
           {player.variantLabel}
         </span>
       )}
