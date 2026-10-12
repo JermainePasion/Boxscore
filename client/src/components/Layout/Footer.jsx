@@ -1,13 +1,7 @@
 import LocalCafeRoundedIcon from "@mui/icons-material/LocalCafeRounded"
 
-// TODO: replace with your Ko-fi page
 const KOFI_URL = "https://ko-fi.com/mainejerms"
 
-/*
- * Site footer: NBA non-affiliation notice + Ko-fi support link.
- * Uses only theme tokens (bg-primary, border-line, text-text-muted, text-gold,
- * accent-orange / on-accent), so it follows the light/dark theme switch.
- */
 export default function Footer() {
   const year = new Date().getFullYear()
 
