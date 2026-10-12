@@ -2,10 +2,14 @@ import express from "express"
 import axios from "axios"
 import fs from "fs/promises"
 import path from "path"
-import httpsProxyAgent from "https-proxy-agent"
+import * as proxyAgentModule from "https-proxy-agent"
 
-// Works with both older (CommonJS) and newer versions of https-proxy-agent.
-const HttpsProxyAgent = httpsProxyAgent.HttpsProxyAgent ?? httpsProxyAgent
+// Works with every version of https-proxy-agent: newer ones only have a named
+// export, older ones only a default export.
+const HttpsProxyAgent =
+  proxyAgentModule.HttpsProxyAgent ??
+  proxyAgentModule.default?.HttpsProxyAgent ??
+  proxyAgentModule.default
 
 /*
  * NBA images, fetched once and then served from disk.
