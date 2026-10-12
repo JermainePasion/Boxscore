@@ -1,3 +1,4 @@
+import nba_guard  # noqa: F401  throttle + proxy + block protection for every nba_api call
 from nba_api.stats.endpoints import leaguegamefinder
 import json
 import sys
