@@ -1,0 +1,58 @@
+# Production setup for the droplet: the API plus Caddy (HTTPS). No database here;
+# the API uses Supabase through DATABASE_URL in .env.
+#
+#   docker compose up -d --build      start / update
+#   docker compose logs -f api        watch the API
+#
+# (Plain `docker compose` uses this file because .env sets COMPOSE_FILE.)
+
+services:
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      # Everything that should survive rebuilds lives on the "cache" volume:
+      IMG_CACHE_DIR: /data/img          # headshots
+      DATA_CACHE_DIR: /data/data        # shot charts, last game sync result
+      NBA_GUARD_DIR: /data/nba_guard    # NBA pause state survives restarts too
+    volumes:
+      - cache:/data
+    # Not published to the internet: only Caddy talks to it.
+    expose:
+      - "5000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # HTTPS certificates; keep this volume
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  cache:
+  caddy_data:
+  caddy_config:
