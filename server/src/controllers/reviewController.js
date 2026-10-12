@@ -1,6 +1,26 @@
 import { prisma } from "../../lib/prisma.js"
-import { execSync } from "child_process"
-import path from "path"
+import { NbaUnavailableError, resilient } from "../../lib/nba.js"
+import { fetchAndSaveGame } from "./gameController.js"
+
+const MIN = 60 * 1000
+const MAX_REVIEW_LENGTH = 10000
+const MAX_COMMENT_LENGTH = 2000
+
+const isGameId = (id) => typeof id === "string" && /^\d{10}$/.test(id)
+
+const NBA_UNAVAILABLE = {
+  error: "Couldn't load this game from the NBA right now. Try again in a few minutes.",
+  retryable: true,
+}
+
+const REVIEW_INCLUDE = {
+  user: { select: { id: true, username: true } },
+  likes: { select: { userId: true } },
+  comments: {
+    include: { user: { select: { id: true, username: true } } },
+    orderBy: { createdAt: "asc" },
+  },
+}
 
 // ─── REVIEWS ────────────────────────────────────────────────────────────────
 
@@ -15,93 +35,49 @@ export const upsertReview = async (req, res) => {
 
   const { gameId, rating, review, watchedAt, watchedBefore } = req.body
 
-  if (!gameId) return res.status(400).json({ error: "gameId is required" })
+  if (!isGameId(gameId)) return res.status(400).json({ error: "A valid gameId is required" })
   if (typeof rating !== "number" || rating < 1 || rating > 10) {
     return res.status(400).json({ error: "rating must be a number between 1 and 10" })
   }
+  if (review != null && typeof review !== "string") {
+    return res.status(400).json({ error: "review must be text" })
+  }
+  if (review && review.length > MAX_REVIEW_LENGTH) {
+    return res.status(400).json({ error: `Reviews can be at most ${MAX_REVIEW_LENGTH} characters` })
+  }
 
   try {
-    // Check if game exists; if not, fetch it
-    let game = await prisma.game.findUnique({ where: { id: gameId } })
-
-    if (!game) {
-      const scriptPath = path.resolve("python", "fetchSingleGame.py")
+    // Reviewing a game that isn't saved yet: fetch it from the NBA first.
+    // (Runs in the background, so other visitors aren't kept waiting, and a
+    // failure isn't retried for 2 minutes.)
+    const exists = await prisma.game.findUnique({ where: { id: gameId }, select: { id: true } })
+    if (!exists) {
       try {
-        const stdout = execSync(`python "${scriptPath}" ${gameId}`).toString()
-        const data = JSON.parse(stdout.trim())
-
-        if (data.error) {
-          return res.status(404).json({ error: "Game not found in NBA API" })
-        }
-
-        const { gameId: gid, homeTeam, awayTeam, stats = [] } = data
-
-        game = await prisma.game.create({
-          data: {
-            id: gid,
-            date: new Date(),
-            season: "20" + gid.slice(3, 5),
-            status: stats.length > 0 ? "final" : "no_data",
-            homeTeam: {
-              connectOrCreate: {
-                where: { id: homeTeam.id },
-                create: { id: homeTeam.id, name: homeTeam.name || "Unknown Team" }
-              }
-            },
-            awayTeam: {
-              connectOrCreate: {
-                where: { id: awayTeam.id },
-                create: { id: awayTeam.id, name: awayTeam.name || "Unknown Team" }
-              }
-            },
-            stats: {
-              create: stats.map(s => ({
-                player: {
-                  connectOrCreate: {
-                    where: { id: s.playerId },
-                    create: {
-                      id: s.playerId,
-                      name: s.name || "Unknown Player",
-                      headshotUrl: `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${s.playerId}.png`
-                    }
-                  }
-                },
-                teamId: s.teamId,
-                points: s.points ?? 0,
-                rebounds: s.rebounds ?? 0,
-                assists: s.assists ?? 0,
-                steals: s.steals ?? 0,
-                blocks: s.blocks ?? 0,
-                minutes: s.minutes || null
-              }))
-            }
-          }
-        })
-      } catch (fetchErr) {
-        console.error("Failed to auto-fetch game:", fetchErr)
-        return res.status(404).json({ error: "Game not found and could not be fetched" })
+        await resilient(`review-fetch:${gameId}`, { ttl: 2 * MIN, failTtl: 2 * MIN }, () =>
+          fetchAndSaveGame(gameId)
+        )
+      } catch (err) {
+        if (err instanceof NbaUnavailableError) return res.status(503).json(NBA_UNAVAILABLE)
+        console.error(`upsertReview: could not fetch game ${gameId}:`, err.message)
+        return res.status(404).json({ error: "Game not found" })
       }
     }
 
     const data = {
       rating,
-      review: review ?? null,
+      review: review?.trim() || null,
       watchedAt: watchedAt ? new Date(watchedAt) : null,
       watchedBefore: watchedBefore ?? false,
+    }
+    if (data.watchedAt && Number.isNaN(data.watchedAt.getTime())) {
+      return res.status(400).json({ error: "watchedAt is not a valid date" })
     }
 
     const result = await prisma.gameReview.upsert({
       where: { userId_gameId: { userId, gameId } },
       update: data,
       create: { userId, gameId, ...data },
-      include: {
-        user: { select: { id: true, username: true } },
-        likes: { select: { userId: true } },
-        comments: {
-          include: { user: { select: { id: true, username: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-      },
+      include: REVIEW_INCLUDE,
     })
 
     return res.json(result)
@@ -122,14 +98,7 @@ export const getReviewsByGame = async (req, res) => {
     const reviews = await prisma.gameReview.findMany({
       where: { gameId },
       orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { id: true, username: true } },
-        likes: { select: { userId: true } },
-        comments: {
-          include: { user: { select: { id: true, username: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-      },
+      include: REVIEW_INCLUDE,
     })
 
     return res.json(reviews)
@@ -149,14 +118,7 @@ export const getReviewById = async (req, res) => {
   try {
     const review = await prisma.gameReview.findUnique({
       where: { id: reviewId },
-      include: {
-        user: { select: { id: true, username: true } },
-        likes: { select: { userId: true } },
-        comments: {
-          include: { user: { select: { id: true, username: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-      },
+      include: REVIEW_INCLUDE,
     })
 
     if (!review) return res.status(404).json({ error: "Review not found" })
@@ -253,7 +215,12 @@ export const createComment = async (req, res) => {
 
   const { content, gameId, reviewId, pyramidId, listId } = req.body
 
-  if (!content?.trim()) return res.status(400).json({ error: "content is required" })
+  if (typeof content !== "string" || !content.trim()) {
+    return res.status(400).json({ error: "content is required" })
+  }
+  if (content.length > MAX_COMMENT_LENGTH) {
+    return res.status(400).json({ error: `Comments can be at most ${MAX_COMMENT_LENGTH} characters` })
+  }
   if (!gameId && !reviewId && !pyramidId && !listId) {
     return res.status(400).json({
       error: "Provide at least one of gameId, reviewId, pyramidId, or listId",
@@ -322,7 +289,6 @@ export const deleteComment = async (req, res) => {
     return res.status(500).json({ error: "Failed to delete comment" })
   }
 }
-
 
 export const getCommentsByPyramid = async (req, res) => {
   const { pyramidId } = req.params

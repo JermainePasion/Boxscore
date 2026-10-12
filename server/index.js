@@ -1,7 +1,3 @@
-// Must be the first import: loads .env before any other module reads process.env.
-// (With `import`, everything is loaded before the file's own code runs, so a
-// dotenv.config() call further down would come too late for modules that read
-// env values when they load, like imgRoutes.js, nba.js and youtube.js.)
 import "dotenv/config"
 
 import express from "express"
@@ -27,8 +23,17 @@ import settingsRoutes from "./src/routes/settingsRoutes.js"
 
 import { startHighlightSync } from "./lib/youtube.js"
 import { startGameSync } from "./lib/gameSync.js"
+import { rateLimit } from "./lib/rateLimit.js"
+import { nbaStatus } from "./lib/nba.js"
+import { prisma } from "./lib/prisma.js"
+
+const MIN = 60 * 1000
 
 const app = express()
+
+// Behind Caddy: trust its X-Forwarded-For so req.ip is the visitor's real IP
+// (needed for rate limiting).
+app.set("trust proxy", 1)
 
 // FRONTEND_URL set (comma-separated for several): only those sites may call the API.
 // Not set (local development): any site may.
@@ -38,7 +43,29 @@ const allowedOrigins = (process.env.FRONTEND_URL || "")
   .filter(Boolean)
 app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true }))
 
-app.use(express.json())
+app.use(express.json({ limit: "100kb" }))
+
+// Rate limits, per visitor IP:
+//  - login / sign-up: 30 tries per 15 min (slows down password guessing and mass sign-ups)
+//  - anything that changes data (reviews, comments, likes, lists...): 120 per minute
+app.use("/api/auth", rateLimit({ windowMs: 15 * MIN, max: 30, methods: ["POST"] }))
+app.use("/api", rateLimit({ windowMs: MIN, max: 120, methods: ["POST", "PUT", "PATCH", "DELETE"] }))
+
+// Health checks for an uptime monitor.
+//  /api/health      server + database are up (503 if the database can't be reached)
+//  /api/health/nba  laptop relay reachable and NBA not blocking us (503 otherwise)
+app.get("/api/health", async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    res.json({ ok: true })
+  } catch {
+    res.status(503).json({ ok: false, database: false })
+  }
+})
+app.get("/api/health/nba", async (req, res) => {
+  const status = await nbaStatus()
+  res.status(status.ok ? 200 : 503).json(status)
+})
 
 app.use("/api/auth", authRoutes)
 app.use("/api/games", gameRoutes)
@@ -63,6 +90,6 @@ const PORT = process.env.PORT || 5000
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`)
-  startHighlightSync() 
+  startHighlightSync()
   startGameSync() 
 })
