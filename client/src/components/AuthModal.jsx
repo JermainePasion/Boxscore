@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
@@ -48,12 +49,16 @@ export default function AuthModal({ open, onClose, initialMode = "login" }) {
 
   const field = "w-full bg-primary-dark border border-line rounded-md px-3 py-2 text-sm text-white outline-none focus:border-gold transition-colors"
 
-  return (
+  // Portaled to <body> with a z-index above the sticky header (z-300), so no
+  // page content or stacking context can ever paint on top of it.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         className="w-full max-w-sm bg-primary border border-line rounded-xl p-6 relative"
         onClick={e => e.stopPropagation()}
       >
@@ -120,6 +125,7 @@ export default function AuthModal({ open, onClose, initialMode = "login" }) {
           </button>
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

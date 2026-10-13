@@ -103,7 +103,7 @@ function CarouselRow({ title, games, isLoading, skeletons = 5 }) {
       ) : N === 0 ? (
         <p className="text-text-muted text-sm">Nothing to show yet.</p>
       ) : (
-        <div className="relative mx-12">
+        <div className="relative mx-12 isolate">
           {/* left arrow */}
           <button
             type="button"
