@@ -242,42 +242,57 @@ export const smartSearch = async (req, res) => {
   }
 }
 
-// POST /api/games/seed-suggested (admin)
-export const seedSuggestedGames = async (req, res) => {
-  try {
-    const suggestions = await runNbaScript("seedSuggestedGames.py", [], { timeout: 300000 })
-    const results = []
+/**
+ * Mark the curated games in python/seedSuggestedGames.py as "suggested" for the
+ * homepage, fetching any that aren't saved yet. Games already saved are only
+ * re-labelled (no NBA request), and games removed from the list stop being
+ * suggested.
+ *
+ * Run it from the server folder:  node scripts/seedSuggested.js
+ * (There's deliberately no public route: anyone could otherwise trigger a burst
+ * of NBA requests.)
+ */
+export async function seedSuggested({ log = console.log } = {}) {
+  const suggestions = await runNbaScript("seedSuggestedGames.py", [], { timeout: 60000 })
+  const ids = suggestions.map((s) => s.gameId)
 
-    for (const s of suggestions) {
-      try {
-        await fetchAndSaveGame(s.gameId, {
-          update: {
-            isSuggested: true,
-            title: s.title,
-            description: s.description,
-            youtubeId: s.youtubeId ?? undefined,
-          },
-          create: {
-            status: "final",
-            isSuggested: true,
-            title: s.title,
-            description: s.description,
-            youtubeId: s.youtubeId ?? null,
-          },
-        })
-        results.push({ gameId: s.gameId, status: "ok", title: s.title })
-      } catch (e) {
-        results.push({ gameId: s.gameId, status: "failed", reason: e.message })
-        if (e instanceof NbaUnavailableError && e.blocked) break // stop; the rest would fail too
-      }
+  const existing = await prisma.game.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, date: true, _count: { select: { stats: true } } },
+  })
+  const complete = new Set(existing.filter((g) => g.date && g._count.stats > 0).map((g) => g.id))
+
+  const results = []
+  for (const s of suggestions) {
+    const fields = {
+      isSuggested: true,
+      title: s.title,
+      description: s.description,
+      ...(s.youtubeId ? { youtubeId: s.youtubeId } : {}),
     }
-
-    return res.json({ seeded: results })
-  } catch (err) {
-    if (err instanceof NbaUnavailableError) return res.status(503).json(NBA_UNAVAILABLE)
-    console.error("seedSuggestedGames error:", err)
-    return res.status(500).json({ error: "Seed failed" })
+    try {
+      if (complete.has(s.gameId)) {
+        await prisma.game.update({ where: { id: s.gameId }, data: fields })
+        results.push({ gameId: s.gameId, status: "ok (already saved)", title: s.title })
+      } else {
+        await fetchAndSaveGame(s.gameId, { update: fields, create: fields })
+        results.push({ gameId: s.gameId, status: "ok (fetched)", title: s.title })
+      }
+      log(`Suggested: ${s.title}`)
+    } catch (e) {
+      results.push({ gameId: s.gameId, status: "failed", title: s.title, reason: e.message })
+      log(`Suggested FAILED: ${s.title}: ${e.message}`)
+      if (e instanceof NbaUnavailableError && e.blocked) break // stop; the rest would fail too
+    }
   }
+
+  // Games taken off the list stop being suggested.
+  const { count: unsuggested } = await prisma.game.updateMany({
+    where: { isSuggested: true, id: { notIn: ids } },
+    data: { isSuggested: false },
+  })
+
+  return { seeded: results, unsuggested }
 }
 
 // GET /api/games/suggested — for the homepage
