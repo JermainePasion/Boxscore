@@ -4,6 +4,14 @@ import { api } from "../../lib/api"
 import BasketballRating from "./BasketballRating"
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded"
 
+// YYYY-MM-DD in the user's local timezone (what <input type="date"> expects).
+// Not toISOString(): that's UTC, which would give yesterday's date before 8 AM in Manila.
+const todayLocal = () => {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 export default function ReviewModal({ open, onClose, game, existing }) {
   const qc = useQueryClient()
   const [rating, setRating] = useState(0)
@@ -16,7 +24,12 @@ export default function ReviewModal({ open, onClose, game, existing }) {
     if (open) {
       setRating(existing?.rating ?? 0)
       setText(existing?.review ?? "")
-      setWatchedAt(existing?.watchedAt ? existing.watchedAt.slice(0, 10) : "")
+      // new logs default to today; edits keep their saved date (or stay blank)
+      setWatchedAt(
+        existing
+          ? (existing.watchedAt ? existing.watchedAt.slice(0, 10) : "")
+          : todayLocal()
+      )
       setWatchedBefore(existing?.watchedBefore ?? false)
       setError(null)
     }
@@ -96,7 +109,8 @@ export default function ReviewModal({ open, onClose, game, existing }) {
                 checked={watchedBefore}
                 onChange={e => {
                   setWatchedBefore(e.target.checked)
-                  if (e.target.checked) setWatchedAt("")
+                  // unticking brings the date back to today instead of leaving it blank
+                  setWatchedAt(e.target.checked ? "" : todayLocal())
                 }}
                 className="accent-[#F77F00]"
               />
@@ -108,6 +122,7 @@ export default function ReviewModal({ open, onClose, game, existing }) {
               <input
                 type="date"
                 value={watchedAt}
+                max={todayLocal()}
                 onChange={e => {
                   setWatchedAt(e.target.value)
                   if (e.target.value) setWatchedBefore(false)
