@@ -18,6 +18,7 @@ import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded"
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded"
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded"
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded"
+import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded"
 
 const navLinks = [
   { to: "/", label: "Home", icon: HomeRoundedIcon },
@@ -32,6 +33,7 @@ const getUserLinks = (username) => [
   { to: "/watchlist", label: "Watchlist", icon: BookmarkBorderRoundedIcon },
   { to: `/user/${username}/diary`, label: "Diary", icon: MenuBookRoundedIcon },
   { to: "/settings", label: "Settings", icon: SettingsRoundedIcon },
+  { to: "/faq", label: "FAQ", icon: HelpOutlineRoundedIcon },
 ]
 
 const initials = (name) => name?.slice(0, 2).toUpperCase() ?? ""
@@ -179,22 +181,29 @@ function MobileMenu({ open, onClose, onAuth, user, isAuthed, logout }) {
             </div>
           </>
         ) : (
-          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-line pt-4">
-            <button
-              type="button"
-              onClick={() => onAuth("login")}
-              className="rounded-lg border border-line py-2.5 text-sm font-medium text-white transition-colors hover:border-gold hover:text-gold"
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => onAuth("register")}
-              className="rounded-lg bg-accent-orange py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-gold"
-            >
-              Sign up
-            </button>
-          </div>
+          <>
+            <SectionLabel>Help</SectionLabel>
+            <NavLink to="/faq" onClick={onClose} className={mobileLinkClasses}>
+              <HelpOutlineRoundedIcon sx={{ fontSize: 20 }} />
+              FAQ
+            </NavLink>
+            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-line pt-4">
+              <button
+                type="button"
+                onClick={() => onAuth("login")}
+                className="rounded-lg border border-line py-2.5 text-sm font-medium text-white transition-colors hover:border-gold hover:text-gold"
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => onAuth("register")}
+                className="rounded-lg bg-accent-orange py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-gold"
+              >
+                Sign up
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -290,6 +299,14 @@ export default function Navbar() {
                   </>
                 ) : (
                   <>
+                    <NavLink
+                      to="/faq"
+                      className={({ isActive }) =>
+                        `text-sm transition-colors whitespace-nowrap ${isActive ? "text-gold" : "text-white hover:text-gold"}`
+                      }
+                    >
+                      FAQ
+                    </NavLink>
                     <button
                       onClick={() => openAuth("login")}
                       className="text-sm text-white hover:text-gold transition-colors whitespace-nowrap"
