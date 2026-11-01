@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../lib/api"
 import { useAuth } from "../context/AuthContext"
@@ -49,7 +49,10 @@ function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editin
         if (id) onDrop(id, from, vKey)
       }}
       onClick={() => editing && onSlotClick()}
-          className={`relative w-16 h-20 md:w-20 md:h-24 rounded-md overflow-hidden border transition-all group
+          // Fluid on phones: 6 slots (tier 5) + gaps always fit the screen width,
+          // capped at the old 64x80 size; fixed 80x96 from md up.
+          className={`relative w-[min(4rem,calc((100vw-4.5rem)/6.5))] aspect-[4/5] md:w-20 md:h-24 md:aspect-auto
+        rounded-md overflow-hidden border transition-all group
         ${editing ? "cursor-pointer" : "cursor-default"}
         ${over ? "border-gold scale-105 shadow-lg shadow-black/30"
                : player ? "border-primary/40"
@@ -81,7 +84,7 @@ function Slot({ player, tierKey, onDrop, onRemove, onSlotClick, selected, editin
         </>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
-          <PersonRoundedIcon sx={{ fontSize: 30 }} className="text-primary/25" />
+          <PersonRoundedIcon sx={{ fontSize: { xs: 24, md: 30 } }} className="text-primary/25" />
         </div>
       )}
     </div>
@@ -362,6 +365,50 @@ export default function PyramidEditor() {
   const pool = searchResults.length > 0 ? searchResults : suggestedVariants
   const filled = Object.keys(slots).length
 
+  // Pyramid background, drawn from where the tier rows actually are. A fixed
+  // triangle stretched over the box doesn't match the rows' slope, so the outer
+  // slots poked out (worst on phones). Here the sides run along the rows' outer
+  // top corners (+ a margin), so every slot sits inside at any screen size.
+  const pyramidRef = useRef(null)
+  const [shape, setShape] = useState(null)   // { w, h, points }
+
+  useLayoutEffect(() => {
+    const el = pyramidRef.current
+    if (!el) return
+    const MARGIN = 10        // px of background beyond the outermost slots
+    const FALLBACK = 0.35    // side slope (px out per px down) when only one row shows
+
+    const measure = () => {
+      const box = el.getBoundingClientRect()
+      const rows = [...el.querySelectorAll("[data-tier-row]")].map(r => {
+        const q = r.getBoundingClientRect()
+        return { y: q.top - box.top, half: q.width / 2 + MARGIN }
+      })
+      if (!rows.length) { setShape(null); return }
+
+      const first = rows[0], last = rows[rows.length - 1]
+      const slope = rows.length > 1 && last.y > first.y
+        ? Math.max(0, (last.half - first.half) / (last.y - first.y))
+        : FALLBACK
+      // half-width(y) = c + slope * y, with c just big enough for every row
+      const c = Math.max(...rows.map(r => r.half - slope * r.y))
+
+      const { width: w, height: h } = box
+      const cx = w / 2
+      const bot = c + slope * h
+      const points = c <= 0
+        ? `${cx},${-c / slope} ${cx + bot},${h} ${cx - bot},${h}`              // true apex
+        : `${cx - c},0 ${cx + c},0 ${cx + bot},${h} ${cx - bot},${h}`         // flat top
+      setShape({ w, h, points })
+    }
+
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    el.querySelectorAll("[data-tier-row]").forEach(r => ro.observe(r))
+    return () => ro.disconnect()
+  }, [editing, slots])
+
    // Auto-scroll the page while dragging a player near the top/bottom edge,
   // so you can drag from the pool up to an off-screen slot (and back).
   useEffect(() => {
@@ -450,7 +497,7 @@ export default function PyramidEditor() {
           onChange={e => setTitle(e.target.value)}
           maxLength={60}
           placeholder="Pyramid title"
-          className="block mx-auto text-center text-3xl md:text-4xl font-bold text-white tracking-wide
+          className="block w-full max-w-xl mx-auto text-center text-3xl md:text-4xl font-bold text-white tracking-wide
                      bg-transparent border-b border-line focus:border-gold outline-none mb-2 px-2"
         />
       ) : (
@@ -461,25 +508,37 @@ export default function PyramidEditor() {
 
       <p className="text-center text-text-muted text-sm mb-8">
         {editing
-          ? `${filled}/20 spots filled · drag a player in, or tap a player then tap a slot`
+          ? `${filled}/20 spots filled`
           : `${filled} player${filled !== 1 ? "s" : ""} ranked`}
       </p>
 
+      {/* While editing on desktop: pyramid on the left, player pool pinned on the
+          right so you can drag straight across without scrolling. Below lg the
+          pool stacks under the pyramid as before. */}
+      <div
+        className={
+          editing
+            ? "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6 lg:items-start"
+            : ""
+        }
+      >
+      <div className="min-w-0">
       {/* pyramid */}
-      <div className="relative max-w-3xl mx-auto mb-10 px-4">
-        <svg
-          className="absolute inset-0 -z-10 w-full h-full"
-          preserveAspectRatio="none"
-          viewBox="0 0 100 100"
-        >
-          <polygon
-            points="50,0 100,100 0,100"
-            fill="#e8eaed"
-            fillOpacity="0.92"
-            stroke="#c9ced6"
-            strokeWidth="0.3"
-          />
-        </svg>
+      <div ref={pyramidRef} className="relative max-w-3xl mx-auto mb-10 px-4">
+        {shape && (
+          <svg
+            className="absolute inset-0 -z-10 w-full h-full overflow-visible"
+            viewBox={`0 0 ${shape.w} ${shape.h}`}
+          >
+            <polygon
+              points={shape.points}
+              fill="#e8eaed"
+              fillOpacity="0.92"
+              stroke="#c9ced6"
+              strokeWidth="1"
+            />
+          </svg>
+        )}
 
         <div className="flex flex-col items-center gap-3 md:gap-4 py-6">
           {TIERS.map(({ tier, slots: count }) => {
@@ -492,7 +551,7 @@ export default function PyramidEditor() {
                 <span className="text-[10px] uppercase tracking-[0.2em] text-primary/70 font-semibold">
                   Tier {tier}
                 </span>
-                <div className="flex gap-2 md:gap-2.5">
+                <div data-tier-row className="flex gap-1.5 md:gap-2.5">
                   {visible.map(key => (
                     <Slot
                       key={key}
@@ -520,7 +579,7 @@ export default function PyramidEditor() {
       </div>
 
       {/* action bar */}
-      <div className="flex items-center justify-center gap-4 mb-8">
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mb-8">
         {editing ? (
           <>
             <button
@@ -577,11 +636,15 @@ export default function PyramidEditor() {
         )}
         {saveMsg && <span className="text-sm text-gold">{saveMsg}</span>}
       </div>
+      </div>{/* /left column */}
 
-      {/* player pool — only while editing */}
+      {/* player pool — only while editing; sticky sidebar on desktop */}
       {editing && (
-        <div className="border border-line rounded-xl bg-surface p-4">
-          <div className="flex items-center gap-2 bg-primary-dark border border-line rounded-md px-3 py-2 mb-4">
+        <aside
+          className="border border-line rounded-xl bg-surface p-4
+                     lg:sticky lg:top-24 lg:flex lg:flex-col lg:max-h-[calc(100vh-7.5rem)]"
+        >
+          <div className="flex shrink-0 items-center gap-2 bg-primary-dark border border-line rounded-md px-3 py-2 mb-4">
             <SearchRoundedIcon sx={{ fontSize: 18 }} className="text-text-muted" />
             <input
               value={query}
@@ -596,7 +659,7 @@ export default function PyramidEditor() {
             )}
           </div>
 
-          <p className="text-xs text-text-muted mb-3">
+          <p className="shrink-0 text-xs text-text-muted mb-3">
             {searchResults.length > 0
               ? "Search results — each card is a different era headshot"
               : "Suggested players — each card is a different era headshot"}
@@ -606,7 +669,8 @@ export default function PyramidEditor() {
           {suggested.isLoading ? (
             <p className="text-text-muted text-sm">Loading players…</p>
           ) : (
-            <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto">
+            <div className="flex flex-wrap content-start gap-2 max-h-56 overflow-y-auto
+                            lg:max-h-none lg:min-h-0 lg:flex-1 lg:pr-1">
               {pool.map(p => (
                 <PoolPlayer
                   key={variantKey(p)}
@@ -619,8 +683,9 @@ export default function PyramidEditor() {
               ))}
             </div>
           )}
-        </div>
+        </aside>
       )}
+      </div>{/* /editor layout */}
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} initialMode="login" />
     </div>
