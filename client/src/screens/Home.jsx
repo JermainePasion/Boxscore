@@ -37,8 +37,23 @@ function GameRow({ title, games, isLoading }) {
 }
 
 /* ── looping coverflow carousel (Latest Games) ── */
-const SPACING = 150          // px between card centers; < card width so neighbors overlap
+const GAP = 16               // px of visible space between every pair of adjacent cards
 const MAX_RANGE = 3          // how many cards to show on each side of center
+const SCALE_STEP = 0.13      // how much smaller each card gets per step away from center
+const DRAG_STEP = 170        // px of drag that counts as moving one card
+
+const scaleAt = (ad) => 1 - Math.min(ad, MAX_RANGE) * SCALE_STEP
+
+// Cards shrink as they move away from the center, so a fixed center-to-center
+// distance makes the gaps uneven (the center card overlaps its neighbors while
+// the outer cards drift apart). Instead, walk outward and add half of each
+// neighbor's *scaled* width plus GAP. Returned in "card widths" so it can be
+// used as a translate % (which is relative to the card's unscaled width).
+const offsetUnits = (ad) => {
+  let units = 0
+  for (let j = 1; j <= ad; j++) units += (scaleAt(j - 1) + scaleAt(j)) / 2
+  return units
+}
 
 function CarouselRow({ title, games, isLoading, skeletons = 5 }) {
   const list = games ?? []
@@ -76,7 +91,7 @@ function CarouselRow({ title, games, isLoading, skeletons = 5 }) {
   }
   const onUp = () => {
     if (!drag.current.active) return
-    const steps = Math.round(-drag.current.dx / SPACING)
+    const steps = Math.round(-drag.current.dx / DRAG_STEP)
     if (steps !== 0) setActive((a) => wrap(a + steps))
     drag.current.active = false
     setDragging(false)
@@ -133,12 +148,14 @@ function CarouselRow({ title, games, isLoading, skeletons = 5 }) {
               if (ad > range) return null
 
               const isCenter = d === 0
-              const scale = 1 - Math.min(ad, MAX_RANGE) * 0.13
+              const scale = scaleAt(ad)
               // outermost ring is rendered but fully transparent — cards fade out
               // at the edges instead of popping in/out
               const opacity =
                 ad === range ? 0 : isCenter ? 1 : Math.max(0.12, 0.55 - (ad - 1) * 0.18)
-              const x = d * SPACING + dragX
+              const sign = Math.sign(d)
+              const pct = sign * offsetUnits(ad) * 100   // % of card width
+              const px = sign * ad * GAP + dragX
 
               return (
                 <div
@@ -158,7 +175,7 @@ function CarouselRow({ title, games, isLoading, skeletons = 5 }) {
                     dragging ? "" : "transition-all duration-300 ease-out"
                   } ${isCenter ? "" : "pointer-events-auto"}`}
                   style={{
-                    transform: `translate(calc(-50% + ${x}px), -50%) scale(${scale})`,
+                    transform: `translate(calc(-50% + ${pct}% + ${px}px), -50%) scale(${scale})`,
                     opacity,
                     zIndex: 100 - ad,
                     filter: isCenter ? "none" : "saturate(0.85)",
