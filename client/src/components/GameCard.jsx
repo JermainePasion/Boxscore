@@ -79,18 +79,20 @@ export default function GameCard({ game }) {
       <div className="relative aspect-[3/4] bg-surface">
 
         {/* ── Default face: logos + VS ── */}
-        <div className="absolute inset-0 flex items-center justify-center gap-3 px-4
+        {/* Logos are fluid: they share whatever width the card has and cap at
+            64px, so narrow cards (2-col mobile grid, carousel) never clip them. */}
+        <div className="absolute inset-0 flex items-center justify-center gap-2 px-3 sm:gap-3 sm:px-4
                         transition-opacity duration-200 group-hover/card:opacity-0">
           <TeamLogoImg
             teamId={game.awayTeamId}
             alt={game.awayTeam?.name}
-            className="w-16 h-16 object-contain drop-shadow-lg"
+            className="flex-1 min-w-0 max-w-16 h-auto aspect-square object-contain drop-shadow-lg"
           />
-          <span className="text-white/80 font-bold text-lg">VS</span>
+          <span className="shrink-0 text-white/80 font-bold text-base sm:text-lg">VS</span>
           <TeamLogoImg
             teamId={game.homeTeamId}
             alt={game.homeTeam?.name}
-            className="w-16 h-16 object-contain drop-shadow-lg"
+            className="flex-1 min-w-0 max-w-16 h-auto aspect-square object-contain drop-shadow-lg"
           />
         </div>
 
