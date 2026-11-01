@@ -68,7 +68,7 @@ export default function GameCard({ game }) {
 
   // Hidden: blur AND drop the gold winner color, which would give the result away.
   const scoreClass = (winning) =>
-    hideScores ? "text-white blur-md select-none" : winning ? "text-gold" : "text-white"
+    hideScores ? "text-white blur-xs select-none" : winning ? "text-gold" : "text-white"
 
   return (
     <Link
